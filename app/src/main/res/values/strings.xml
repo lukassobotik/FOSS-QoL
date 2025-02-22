@@ -1,5 +1,8 @@
 <resources>
-    <string name="app_name">FOSS-QoL</string>
+    <string name="app_name">FOSS QoL</string>
     <string name="open_foss_qol">Open FOSS QoL</string>
     <string name="title_activity_qrshare">QRShareActivity</string>
+    <string name="title_activity_share_to_save">ShareToSaveActivity</string>
+    <string name="share_to_save">Share To Save</string>
+    <string name="qr_share">QR Share</string>
 </resources>

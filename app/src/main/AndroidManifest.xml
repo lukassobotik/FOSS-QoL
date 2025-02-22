@@ -12,17 +12,41 @@
             android:supportsRtl="true"
             android:theme="@style/Theme.FOSSQoL"
             tools:targetApi="31">
+
+        <activity
+                android:name=".ShareToSaveActivity"
+                android:exported="true"
+                android:label="@string/share_to_save"
+                android:theme="@style/Theme.FOSSQoL">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="image/*"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="video/*"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="application/pdf"/>
+            </intent-filter>
+        </activity>
+
         <activity
                 android:name=".QRShareActivity"
                 android:exported="true"
-                android:label="QR Share"
+                android:label="@string/qr_share"
                 android:theme="@style/Theme.FOSSQoL">
             <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="text/plain" />
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
             </intent-filter>
         </activity>
+
         <activity
                 android:name=".MainActivity"
                 android:exported="true"
