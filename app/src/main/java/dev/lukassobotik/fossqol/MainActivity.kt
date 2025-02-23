@@ -1,11 +1,14 @@
 package dev.lukassobotik.fossqol
 
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,6 +17,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import dev.lukassobotik.fossqol.ui.theme.FOSSQoLTheme
 
@@ -28,6 +33,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             FOSSQoLTheme {
                 settingsScreen(
+                    context = this,
                     onToolClick = { tool -> startActivity(Intent(this, tool.activityClass)) }
                 )
             }
@@ -37,11 +43,30 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun settingsScreen(modifier: Modifier = Modifier, onToolClick: (ToolOption) -> Unit) {
+fun settingsScreen(context: Context, modifier: Modifier = Modifier, onToolClick: (ToolOption) -> Unit) {
+    val isDarkTheme = isSystemInDarkTheme()
+    val tintColor = if (isDarkTheme) Color.White else Color.Black
     Scaffold(
         topBar = {
-            MediumTopAppBar(
-                title = { Text("Quality of Life improvements") }
+            TopAppBar(
+                title = { Text("Quality of Life improvements") },
+                navigationIcon = {},
+                actions = {
+                    IconButton(onClick = { context.openUrlInBrowser("https://www.buymeacoffee.com/lukassobotik") }) {
+                        Icon(
+                            painter = painterResource(R.drawable.buymeacoffee_logo),
+                            contentDescription = "BuyMeACoffee Logo",
+                            tint = tintColor
+                        )
+                    }
+                    IconButton(onClick = { context.openUrlInBrowser("https://github.com/lukassobotik/foss-qol") }) {
+                        Icon(
+                            painter = painterResource(R.drawable.github_logo),
+                            contentDescription = "GitHub Logo",
+                            tint = tintColor
+                        )
+                    }
+                }
             )
         }
     ) { paddingValues ->
@@ -94,4 +119,11 @@ fun settingsNewActivityCard(headline: String, description: String, onToolClick: 
         modifier = Modifier
             .clickable { onToolClick?.invoke() }
     )
+}
+
+fun Context.openUrlInBrowser(url: String) {
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        data = Uri.parse(url)
+    }
+    startActivity(intent)
 }
