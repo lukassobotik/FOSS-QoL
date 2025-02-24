@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -38,21 +39,16 @@ class QRShareActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
+            val tintColor = if (isSystemInDarkTheme()) Color.White else Color.Black
             FOSSQoLTheme {
                 var text by rememberSaveable { mutableStateOf(sharedText ?: "Hello there!") }
                 Scaffold(modifier = Modifier.fillMaxSize(),
                     topBar = {
-                        TopAppBar(
-                            title = { Text("QR Share") },
-                            navigationIcon = {
-                                IconButton(onClick = { finish() }) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Back"
-                                    )
-                                }
-                            }
-                        )
+                        topAppBar(
+                            context = this@QRShareActivity,
+                            label = "QR Share",
+                            showBackButton = true,
+                            tintColor = tintColor)
                 }) { innerPadding ->
                     Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                         Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {

@@ -12,6 +12,17 @@
             android:supportsRtl="true"
             android:theme="@style/Theme.FOSSQoL"
             tools:targetApi="31">
+        <activity
+                android:name=".CleanShareActivity"
+                android:exported="true"
+                android:label="@string/cleanshare"
+                android:theme="@style/Theme.FOSSQoL">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="image/*"/>
+            </intent-filter>
+        </activity>
 
         <activity
                 android:name=".ShareToSaveActivity"
@@ -42,7 +53,9 @@
                 android:theme="@style/Theme.FOSSQoL">
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>
+
                 <category android:name="android.intent.category.DEFAULT"/>
+
                 <data android:mimeType="text/plain"/>
             </intent-filter>
         </activity>
@@ -72,6 +85,17 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE"/>
             </intent-filter>
         </service>
+
+        <provider
+                android:name="androidx.core.content.FileProvider"
+                android:authorities="dev.lukassobotik.fossqol.fileprovider"
+                android:grantUriPermissions="true"
+                android:exported="false">
+            <meta-data
+                    android:name="android.support.FILE_PROVIDER_PATHS"
+                    android:resource="@xml/filepaths" />
+        </provider>
+
     </application>
 
 </manifest>

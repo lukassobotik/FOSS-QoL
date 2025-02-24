@@ -11,12 +11,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContract
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import dev.lukassobotik.fossqol.ui.theme.FOSSQoLTheme
 import java.io.IOException
 
@@ -84,21 +86,16 @@ class ShareToSaveActivity : ComponentActivity() {
         }
 
         setContent {
+            val tintColor = if (isSystemInDarkTheme()) Color.White else Color.Black
             FOSSQoLTheme {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     topBar = {
-                        TopAppBar(
-                            title = { Text("Share To Save") },
-                            navigationIcon = {
-                                IconButton(onClick = { finish() }) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Back"
-                                    )
-                                }
-                            }
-                        )
+                        topAppBar(
+                            context = this@ShareToSaveActivity,
+                            label = "Share To Save",
+                            showBackButton = true,
+                            tintColor = tintColor)
                     }
                 ) {
                     InfoMessage()

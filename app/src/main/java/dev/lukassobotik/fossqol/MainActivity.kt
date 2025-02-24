@@ -13,17 +13,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import dev.lukassobotik.fossqol.QRShareActivity
 import dev.lukassobotik.fossqol.ui.theme.FOSSQoLTheme
 
 enum class ToolOption(val title: String, val description: String, val activityClass: Class<*>) {
     QR_SHARE("QR Share", "Share text with a QR Code.", QRShareActivity::class.java),
+    CLEAN_SHARE("Clean Share", "Remove metadata from files and compress.", CleanShareActivity::class.java),
 }
 
 class MainActivity : ComponentActivity() {
@@ -44,30 +48,14 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun settingsScreen(context: Context, modifier: Modifier = Modifier, onToolClick: (ToolOption) -> Unit) {
-    val isDarkTheme = isSystemInDarkTheme()
-    val tintColor = if (isDarkTheme) Color.White else Color.Black
+    val tintColor = if (isSystemInDarkTheme()) Color.White else Color.Black
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Quality of Life improvements") },
-                navigationIcon = {},
-                actions = {
-                    IconButton(onClick = { context.openUrlInBrowser("https://www.buymeacoffee.com/lukassobotik") }) {
-                        Icon(
-                            painter = painterResource(R.drawable.buymeacoffee_logo),
-                            contentDescription = "BuyMeACoffee Logo",
-                            tint = tintColor
-                        )
-                    }
-                    IconButton(onClick = { context.openUrlInBrowser("https://github.com/lukassobotik/foss-qol") }) {
-                        Icon(
-                            painter = painterResource(R.drawable.github_logo),
-                            contentDescription = "GitHub Logo",
-                            tint = tintColor
-                        )
-                    }
-                }
-            )
+            topAppBar(
+                context = context,
+                label = "Quality of Life improvements",
+                showBackButton = false,
+                tintColor = tintColor)
         }
     ) { paddingValues ->
         LazyColumn(
@@ -126,4 +114,38 @@ fun Context.openUrlInBrowser(url: String) {
         data = Uri.parse(url)
     }
     startActivity(intent)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun topAppBar(context: Context, label: String, showBackButton: Boolean, tintColor: Color = Color.White) {
+    TopAppBar(
+        title = { Text(label) },
+        navigationIcon = {
+            if (showBackButton) {
+                IconButton(onClick = { (context as? ComponentActivity)?.finish() }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back"
+                    )
+                }
+            }
+        },
+        actions = {
+            IconButton(onClick = { context.openUrlInBrowser("https://www.buymeacoffee.com/lukassobotik") }) {
+                Icon(
+                    painter = painterResource(R.drawable.buymeacoffee_logo),
+                    contentDescription = "BuyMeACoffee Logo",
+                    tint = tintColor
+                )
+            }
+            IconButton(onClick = { context.openUrlInBrowser("https://github.com/lukassobotik/foss-qol") }) {
+                Icon(
+                    painter = painterResource(R.drawable.github_logo),
+                    contentDescription = "GitHub Logo",
+                    tint = tintColor
+                )
+            }
+        }
+    )
 }
