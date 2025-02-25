@@ -4,33 +4,26 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
+import coil3.compose.rememberAsyncImagePainter
 import dev.lukassobotik.fossqol.ui.theme.FOSSQoLTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class CleanShareActivity : ComponentActivity() {
@@ -39,18 +32,18 @@ class CleanShareActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         if (Intent.ACTION_SEND == intent.action && intent.type != null) {
             selectedUri = intent.getParcelableExtra(Intent.EXTRA_STREAM)
         }
-
         enableEdgeToEdge()
         setContent {
-            val tintColor = if (isSystemInDarkTheme()) Color.White else Color.Black
+            val tintColor =
+                if (androidx.compose.foundation.isSystemInDarkTheme()) Color.White else Color.Black
             FOSSQoLTheme {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     topBar = {
+                        // Retaining your original topAppBar.
                         topAppBar(
                             context = this@CleanShareActivity,
                             label = "Clean Share",
@@ -59,8 +52,15 @@ class CleanShareActivity : ComponentActivity() {
                         )
                     }
                 ) { innerPadding ->
-                    Column (modifier = Modifier.padding(innerPadding), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                        MetadataRemoverScreen(sourceUri = selectedUri)
+                    Box(
+                        modifier = Modifier
+                            .padding(innerPadding)
+                            .fillMaxSize()
+                    ) {
+                        MetadataRemoverScreen(
+                            selectedUri = selectedUri,
+                            onResetImage = { selectedUri = null }
+                        )
                     }
                 }
             }
@@ -81,57 +81,155 @@ class CleanShareActivity : ComponentActivity() {
         }
     }
 }
+
 object Codes {
     internal const val REQUEST_CODE_SELECT_IMAGE = 1001
 }
 
 @Composable
-fun MetadataRemoverScreen(sourceUri: Uri?) {
+fun MetadataRemoverScreen(
+    selectedUri: Uri?,
+    onResetImage: () -> Unit
+) {
     val context = LocalContext.current
     var cleanUri by remember { mutableStateOf<Uri?>(null) }
+    var isProcessing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    Column(
-        modifier = Modifier.padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Button to select an image
-        Button(onClick = {
-            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                addCategory(Intent.CATEGORY_OPENABLE)
-                type = "image/*"
-            }
-            (context as? Activity)?.startActivityForResult(intent, Codes.REQUEST_CODE_SELECT_IMAGE)
-        }) {
-            Text("Select Image")
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Main content area
+        if (selectedUri == null) {
+            // No image selected: Center the message.
+            Text(
+                text = "No image selected",
+                modifier = Modifier.align(Alignment.Center)
+            )
+        } else {
+            // If an image is selected, display its preview.
+            // If metadata has been removed, show the cleaned image.
+            val uriToShow = cleanUri ?: selectedUri
+            Image(
+                painter = rememberAsyncImagePainter(model = uriToShow),
+                contentDescription = "Image Preview",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .padding(bottom = 100.dp), // Reserve space for the bottom buttons.
+                contentScale = ContentScale.Fit
+            )
         }
 
-        // Show the "Remove Metadata" button only if an image is selected
-        sourceUri?.let {
-            Button(onClick = {
-                // Launch a coroutine to process the image
-                scope.launch {
-                    cleanUri = removeMetadata(context, it)
+        // Bottom control area
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp)
+        ) {
+            when {
+                selectedUri == null -> {
+                    // When no image is selected, show the "Select Image" button.
+                    Button(
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = "image/*"
+                            }
+                            (context as? Activity)?.startActivityForResult(
+                                intent,
+                                Codes.REQUEST_CODE_SELECT_IMAGE
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Select Image")
+                    }
                 }
-            }) {
-                Text("Remove Metadata")
-            }
-        }
-
-        cleanUri?.let { uri ->
-            Text("Clean file created at: $uri")
-            // Optionally, launch a share intent using the clean URI:
-            Button(onClick = {
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = context.contentResolver.getType(uri) ?: "image/*"
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                cleanUri == null -> {
+                    // When an image is selected but not yet processed,
+                    // show the "Remove Metadata" button and a reset ("X") button.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    isProcessing = true
+                                    // Call the metadata removal process.
+                                    cleanUri = removeMetadataProcess(context, selectedUri)
+                                    isProcessing = false
+                                }
+                            },
+                            enabled = !isProcessing,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(text = if (isProcessing) "Processing..." else "Remove Metadata")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                onResetImage()
+                                cleanUri = null
+                            }
+                        ) {
+                            Text("X")
+                        }
+                    }
                 }
-                context.startActivity(Intent.createChooser(shareIntent, "Share Clean Image"))
-            }) {
-                Text("Share Clean Image")
+                else -> {
+                    // After processing: show "Share", "Save" (not implemented), and reset ("X") buttons.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = {
+                                // Share the cleaned image.
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = context.contentResolver.getType(cleanUri!!)
+                                        ?: "image/*"
+                                    putExtra(Intent.EXTRA_STREAM, cleanUri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(shareIntent, "Share Clean Image"))
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Share")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                // TODO: Implement saving files directly.
+                                Toast.makeText(context, "Not yet implemented.", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Save")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                onResetImage()
+                                cleanUri = null
+                            }
+                        ) {
+                            Text("X")
+                        }
+                    }
+                }
             }
         }
     }
 }
 
+/**
+ * Simulate the metadata removal process.
+ * Replace this with your actual implementation.
+ */
+suspend fun removeMetadataProcess(context: android.content.Context, uri: Uri): Uri? {
+    delay(2000) // Simulate processing delay
+    return removeMetadata(context, uri) // In a real scenario, process the file and return the new URI.
+}

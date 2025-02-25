@@ -56,4 +56,5 @@ dependencies {
     implementation(libs.exif)
 
     implementation(libs.qrose)
+    implementation(libs.coil)
 }
