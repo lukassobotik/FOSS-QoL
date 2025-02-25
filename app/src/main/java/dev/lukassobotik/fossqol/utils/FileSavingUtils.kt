@@ -49,7 +49,7 @@ class CreateDocumentContract : ActivityResultContract<CreateDocumentRequest, Uri
 }
 
 /**
- * Utility functions for sharing-to-save.
+ * Utility functions for saving files.
  */
 object FileSavingUtils {
 
