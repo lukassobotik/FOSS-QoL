@@ -62,7 +62,7 @@ class CleanShareActivity : ComponentActivity() {
                             context = this@CleanShareActivity,
                             label = "Clean Share",
                             showBackButton = true,
-                            tintColor = tintColor
+                            tintColor = tintColor,
                         )
                     }
                 ) { innerPadding ->

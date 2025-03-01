@@ -11,23 +11,38 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.QrCode
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import dev.lukassobotik.fossqol.QRShareActivity
 import dev.lukassobotik.fossqol.ui.theme.FOSSQoLTheme
 
-enum class ToolOption(val title: String, val description: String, val activityClass: Class<*>) {
-    QR_SHARE("QR Share", "Share text with a QR Code.", QRShareActivity::class.java),
-    CLEAN_SHARE("Clean Share", "Remove metadata from files and compress.", CleanShareActivity::class.java),
+enum class ToolOption(val title: String, val description: String, val icon: IconData?, val activityClass: Class<*>) {
+    QR_SHARE("QR Share", "Share text with a QR Code.", IconData.VectorIcon(Icons.Rounded.QrCode), QRShareActivity::class.java),
+    CLEAN_SHARE("Clean Share", "Remove metadata from files and compress.", IconData.VectorIcon(Icons.Rounded.Share), CleanShareActivity::class.java),
+}
+
+sealed class OnToolClick {
+    data class Action(val action: () -> Unit) : OnToolClick()
+    data class Url(val url: String) : OnToolClick()
+}
+
+sealed class IconData {
+    data class PainterIcon(val painter: Painter): IconData()
+    data class VectorIcon(val imageVector: ImageVector): IconData()
 }
 
 class MainActivity : ComponentActivity() {
@@ -73,17 +88,47 @@ fun settingsScreen(context: Context, modifier: Modifier = Modifier, onToolClick:
             ToolOption.entries.forEach { tool ->
                 item {
                     settingsNewActivityCard(
+                        context = context,
                         headline = tool.title,
                         description = tool.description,
-                        onToolClick = { onToolClick(tool) }
+                        onToolClick = OnToolClick.Action{ onToolClick(tool) },
+                        icon = tool.icon
                     )
                 }
             }
             item {
                 settingsNewActivityCard(
+                    context = context,
                     headline = "Share To Save",
                     description = "Share any image / video to save it to your device. \nTo use, share any file from your device and select \"Share To Save\".",
-                    onToolClick = null
+                    onToolClick = null,
+                    icon = IconData.VectorIcon(Icons.Rounded.Save)
+                )
+            }
+            item {
+                Text(
+                    text = "About",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
+                )
+            }
+            item {
+                settingsNewActivityCard(
+                    context = context,
+                    headline = "Github",
+                    description = "Access the source code on  the GitHub repository.",
+                    onToolClick = OnToolClick.Url("https://github.com/lukassobotik/foss-qol"),
+                    icon = IconData.PainterIcon(painterResource(id = R.drawable.github_logo))
+
+                )
+            }
+            item {
+                settingsNewActivityCard(
+                    context = context,
+                    headline = "BuyMeACoffee",
+                    description = "Support the project by contributing through BuyMeACoffee.",
+                    onToolClick = OnToolClick.Url("https://www.buymeacoffee.com/lukassobotik"),
+                    icon = IconData.PainterIcon(painterResource(id = R.drawable.buymeacoffee_logo))
                 )
             }
         }
@@ -92,10 +137,35 @@ fun settingsScreen(context: Context, modifier: Modifier = Modifier, onToolClick:
 
 
 @Composable
-fun settingsNewActivityCard(headline: String, description: String, onToolClick: (() -> Unit)?) {
+fun settingsNewActivityCard(
+    context: Context,
+    headline: String,
+    description: String,
+    onToolClick: OnToolClick?,
+    icon: IconData? = null
+) {
     ListItem(
+        leadingContent = {
+            when (icon) {
+                is IconData.PainterIcon ->
+                    Icon(
+                        painter = icon.painter,
+                        contentDescription = headline,
+                        modifier = Modifier.size(24.dp),
+                    )
+
+                is IconData.VectorIcon ->
+                    Icon(
+                        imageVector = icon.imageVector,
+                        contentDescription = headline,
+                        modifier = Modifier.size(24.dp)
+                    )
+                null -> {}
+            }
+        },
         headlineContent = { Text(headline) },
         supportingContent = { Text(description) },
+        overlineContent = {  },
         trailingContent = {
             if (onToolClick != null) {
                 Icon(
@@ -104,8 +174,13 @@ fun settingsNewActivityCard(headline: String, description: String, onToolClick: 
                 )
             }
         },
-        modifier = Modifier
-            .clickable { onToolClick?.invoke() }
+        modifier = Modifier.clickable {
+            when (onToolClick) {
+                is OnToolClick.Action -> onToolClick.action()
+                is OnToolClick.Url -> context.openUrlInBrowser(onToolClick.url)
+                null -> { /* No action provided */ }
+            }
+        }
     )
 }
 
@@ -119,7 +194,7 @@ fun Context.openUrlInBrowser(url: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun topAppBar(context: Context, label: String, showBackButton: Boolean, tintColor: Color = Color.White) {
-    TopAppBar(
+    CenterAlignedTopAppBar(
         title = { Text(label) },
         navigationIcon = {
             if (showBackButton) {
@@ -132,20 +207,19 @@ fun topAppBar(context: Context, label: String, showBackButton: Boolean, tintColo
             }
         },
         actions = {
-            IconButton(onClick = { context.openUrlInBrowser("https://www.buymeacoffee.com/lukassobotik") }) {
+            IconButton(onClick = { context.openUrlInBrowser("https://github.com/lukassobotik/foss-qol/issues/new") }) {
                 Icon(
-                    painter = painterResource(R.drawable.buymeacoffee_logo),
-                    contentDescription = "BuyMeACoffee Logo",
+                    imageVector = Icons.Rounded.BugReport,
+                    contentDescription = "GitHub",
                     tint = tintColor
                 )
             }
-            IconButton(onClick = { context.openUrlInBrowser("https://github.com/lukassobotik/foss-qol") }) {
-                Icon(
-                    painter = painterResource(R.drawable.github_logo),
-                    contentDescription = "GitHub Logo",
-                    tint = tintColor
-                )
-            }
-        }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+            actionIconContentColor = MaterialTheme.colorScheme.onSurface
+        )
     )
 }
