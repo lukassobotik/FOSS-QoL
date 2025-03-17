@@ -23,7 +23,6 @@ body:
       label: Activity
       description: In what activity did the bug occur?
       options:
-        - Unsure
         - MainActivity
         - CleanShareActivity
         - QRShareActivity
