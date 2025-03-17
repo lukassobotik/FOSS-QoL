@@ -1,7 +1,7 @@
 name: Bug Report
 description: File a bug report.
 title: "[Bug]: "
-labels: ["bug"]
+labels: [ "bug" ]
 assignees:
   -
 body:
@@ -17,6 +17,19 @@ body:
       placeholder: "The app crashes when..."
     validations:
       required: true
+  - type: dropdown
+    id: activity
+    attributes:
+      label: Activity
+      description: In what activity did the bug occur? (optional)
+      options:
+        - MainActivity
+        - CleanShareActivity
+        - QRShareActivity
+        - ShareToSaveActivity
+      default: 0
+    validations:
+      required: false
   - type: textarea
     id: steps_to_reproduce
     attributes:
@@ -27,3 +40,4 @@ body:
         2. Tap the crash button
     validations:
       required: true
+
