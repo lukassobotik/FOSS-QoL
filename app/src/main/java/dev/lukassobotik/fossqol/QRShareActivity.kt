@@ -50,7 +50,7 @@ class QRShareActivity : ComponentActivity() {
                             showBackButton = true,
                             tintColor = tintColor)
                 }) { innerPadding ->
-                    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(modifier = Modifier.fillMaxSize().padding(innerPadding), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                         Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                             TextField(
                                 value = text,

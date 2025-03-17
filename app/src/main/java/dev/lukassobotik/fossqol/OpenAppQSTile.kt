@@ -1,5 +1,6 @@
 package dev.lukassobotik.fossqol
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.drawable.Icon
@@ -13,20 +14,10 @@ class OpenAppQSTile: TileService() {
     // Called when the user adds your tile.
     override fun onTileAdded() {
         super.onTileAdded()
-        qsTile.apply {
-            state = Tile.STATE_INACTIVE
-            label = getString(R.string.open_foss_qol)
-            updateTile()
-        }
     }
     // Called when your app can update your tile.
     override fun onStartListening() {
         super.onStartListening()
-        qsTile.apply {
-            state = Tile.STATE_INACTIVE
-            label = getString(R.string.open_foss_qol)
-            updateTile()
-        }
     }
 
     // Called when your app can no longer update your tile.
@@ -35,8 +26,14 @@ class OpenAppQSTile: TileService() {
     }
 
     // Called when the user taps on your tile in an active or inactive state.
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     override fun onClick() {
         super.onClick()
+        qsTile.apply {
+            state = Tile.STATE_INACTIVE
+            label = getString(R.string.foss_qol_settings)
+            updateTile()
+        }
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
