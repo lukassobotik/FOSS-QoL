@@ -17,17 +17,12 @@ body:
       placeholder: "The app crashes when..."
     validations:
       required: true
-  - type: dropdown
+  - type: input
     id: activity
     attributes:
       label: Activity
       description: In what activity did the bug occur?
-      options:
-        - MainActivity
-        - CleanShareActivity
-        - QRShareActivity
-        - ShareToSaveActivity
-      default: 0
+      placeholder: Leave empty if unsure.
     validations:
       required: false
   - type: input
