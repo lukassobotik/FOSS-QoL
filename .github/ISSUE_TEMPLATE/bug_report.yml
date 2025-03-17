@@ -21,8 +21,9 @@ body:
     id: activity
     attributes:
       label: Activity
-      description: In what activity did the bug occur? (optional)
+      description: In what activity did the bug occur?
       options:
+        - Unsure
         - MainActivity
         - CleanShareActivity
         - QRShareActivity
@@ -30,6 +31,14 @@ body:
       default: 0
     validations:
       required: false
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: What version of the app were you using?
+      placeholder: v1.0.0
+    validations:
+      required: true
   - type: textarea
     id: steps_to_reproduce
     attributes:
@@ -40,4 +49,9 @@ body:
         2. Tap the crash button
     validations:
       required: true
-
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      render: shell
