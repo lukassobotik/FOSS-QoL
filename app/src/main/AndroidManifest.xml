@@ -74,8 +74,8 @@
         <service
                 android:name=".OpenAppQSTile"
                 android:exported="true"
-                android:icon="@drawable/bolt"
-                android:label="@string/open_foss_qol"
+                android:icon="@drawable/qol_logo"
+                android:label="@string/foss_qol_settings"
                 android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <meta-data
                     android:name="android.service.quicksettings.ACTIVE_TILE"
