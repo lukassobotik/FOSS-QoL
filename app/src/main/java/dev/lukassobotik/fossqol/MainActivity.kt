@@ -2,8 +2,10 @@ package dev.lukassobotik.fossqol
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -29,6 +31,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import dev.lukassobotik.fossqol.ui.theme.FOSSQoLTheme
+import dev.lukassobotik.fossqol.utils.GitHubIssueUrlBuilder
 
 enum class ToolOption(val title: String, val description: String, val icon: IconData?, val activityClass: Class<*>) {
     QR_SHARE("QR Share", "Share text with a QR Code.", IconData.VectorIcon(Icons.Rounded.QrCode), QRShareActivity::class.java),
@@ -207,7 +210,7 @@ fun topAppBar(context: Context, label: String, showBackButton: Boolean, tintColo
             }
         },
         actions = {
-            IconButton(onClick = { context.openUrlInBrowser("https://github.com/lukassobotik/foss-qol/issues/new") }) {
+            IconButton(onClick = { bugReportButtonAction(context) }) {
                 Icon(
                     imageVector = Icons.Rounded.BugReport,
                     contentDescription = "GitHub",
@@ -222,4 +225,23 @@ fun topAppBar(context: Context, label: String, showBackButton: Boolean, tintColo
             actionIconContentColor = MaterialTheme.colorScheme.onSurface
         )
     )
+}
+
+fun bugReportButtonAction(context: Context) {
+    val issueUrl = GitHubIssueUrlBuilder.build(
+        bugDescription = "",
+        activity = context.javaClass.simpleName,
+        version = getAppVersion(context),
+        stepsToReproduce = ""
+    )
+    context.openUrlInBrowser(issueUrl)
+}
+
+fun getAppVersion(context: Context): String {
+    return try {
+        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+        packageInfo.versionName
+    } catch (e: PackageManager.NameNotFoundException) {
+        "latest"
+    }.toString()
 }
