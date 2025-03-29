@@ -50,16 +50,22 @@ class QRShareActivity : ComponentActivity() {
                             showBackButton = true,
                             tintColor = tintColor)
                 }) { innerPadding ->
-                    Column(modifier = Modifier.fillMaxSize().padding(innerPadding), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                        Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+                        Box(modifier = Modifier.align(Alignment.Center)) {
+                            qrCode(text)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(16.dp)
+                        ) {
                             TextField(
                                 value = text,
                                 onValueChange = { text = it },
-                                modifier = Modifier.padding(16.dp),
+                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
                                 label = { Text("Enter QR Code Data") }
                             )
                         }
-                        qrCode(text)
                     }
                 }
             }
