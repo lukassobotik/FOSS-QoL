@@ -15,6 +15,14 @@
             android:theme="@style/Theme.FOSSQoL"
             tools:targetApi="31">
         <activity
+                android:name=".NotificationNoteActivity"
+                android:exported="true"
+                android:excludeFromRecents="true"
+                android:windowSoftInputMode="adjustResize"
+                android:noHistory="true"
+                android:label="@string/title_activity_notification_note"
+                android:theme="@style/Theme.TransparentDialog"/>
+        <activity
                 android:name=".CleanShareActivity"
                 android:exported="true"
                 android:label="@string/cleanshare"
@@ -106,11 +114,11 @@
         <provider
                 android:name="androidx.core.content.FileProvider"
                 android:authorities="dev.lukassobotik.fossqol.fileprovider"
-                android:grantUriPermissions="true"
-                android:exported="false">
+                android:exported="false"
+                android:grantUriPermissions="true">
             <meta-data
                     android:name="android.support.FILE_PROVIDER_PATHS"
-                    android:resource="@xml/filepaths" />
+                    android:resource="@xml/filepaths"/>
         </provider>
 
     </application>

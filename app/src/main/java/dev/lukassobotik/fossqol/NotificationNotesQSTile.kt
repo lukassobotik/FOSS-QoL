@@ -1,15 +1,12 @@
 package dev.lukassobotik.fossqol
 
-import android.Manifest
 import android.annotation.SuppressLint
-import android.content.pm.PackageManager
+import android.app.PendingIntent
+import android.content.Intent
 import android.graphics.drawable.Icon
+import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import android.widget.RemoteViews
-import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 
 class NotificationNotesQSTile: TileService() {
     data class StateModel(val enabled: Boolean, val label: String, val icon: Icon)
@@ -38,34 +35,14 @@ class NotificationNotesQSTile: TileService() {
             updateTile()
         }
 
-        val remoteViews = RemoteViews(this.packageName, R.layout.notification_checklist)
-        remoteViews.setTextViewText(R.id.notification_header, getString(R.string.notes))
-
-        val notification = NotificationCompat.Builder(this, Notifications.NOTES)
-            .setSmallIcon(R.drawable.note_stack)
-            .setSubText(getString(R.string.notes))
-            .setCustomContentView(remoteViews)
-            .setCustomBigContentView(remoteViews)
-            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-
-        with(NotificationManagerCompat.from(this)) {
-            if (ActivityCompat.checkSelfPermission(
-                    this@NotificationNotesQSTile,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                // TODO: Consider calling
-                // ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                // public fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>,
-                //                                        grantResults: IntArray)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
-
-                return@with
-            }
-            notify(0, notification.build())
+        val intent = Intent(this, NotificationNoteActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivityAndCollapse(pendingIntent)
+        } else {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivityAndCollapse(intent)
         }
     }
     // Called when the user removes your tile.

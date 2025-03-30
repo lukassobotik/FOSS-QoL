@@ -9,4 +9,5 @@
     <string name="cleanshare">Clean Share</string>
     <string name="new_note">New Note</string>
     <string name="notes">Notes</string>
+    <string name="title_activity_notification_note">NotificationNoteActivity</string>
 </resources>
