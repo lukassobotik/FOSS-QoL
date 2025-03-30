@@ -3,17 +3,20 @@ package dev.lukassobotik.fossqol
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.view.View
 import android.view.WindowManager
 import android.widget.RemoteViews
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
@@ -29,21 +32,26 @@ class NotificationNoteActivity : ComponentActivity() {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .padding(0.dp)
                         .imePadding()
                 ) {
                     // Place the note dialog at the bottom center.
                     NoteDialog(
                         onDismiss = { finish() },
                         onSave = { note ->
+                            var noteTitle = if (note.title !== "") {
+                                note.title
+                            } else {
+                                getString(R.string.notes)
+                            }
+
                             val remoteViews = RemoteViews(this@NotificationNoteActivity.packageName, R.layout.notification_checklist)
-                            remoteViews.setTextViewText(R.id.notification_header, getString(R.string.notes))
-                            remoteViews.setViewVisibility(R.id.notification_header, View.VISIBLE)
-                            remoteViews.setTextViewText(R.id.notification_note, note)
+                            remoteViews.setTextViewText(R.id.notification_header, noteTitle)
+                            remoteViews.setTextViewText(R.id.notification_note, note.body)
 
                             val extendedRemoteViews = RemoteViews(this@NotificationNoteActivity.packageName, R.layout.notification_checklist)
-                            extendedRemoteViews.setTextViewText(R.id.notification_header, getString(R.string.notes))
-                            extendedRemoteViews.setViewVisibility(R.id.notification_header, View.GONE)
-                            extendedRemoteViews.setTextViewText(R.id.notification_note, note)
+                            extendedRemoteViews.setTextViewText(R.id.notification_header, noteTitle)
+                            extendedRemoteViews.setTextViewText(R.id.notification_note, note.body)
 
                             val notification = NotificationCompat.Builder(this@NotificationNoteActivity, Notifications.NOTES)
                                 .setSmallIcon(R.drawable.note_stack)
@@ -85,26 +93,61 @@ class NotificationNoteActivity : ComponentActivity() {
 @Composable
 fun NoteDialog(
     onDismiss: () -> Unit,
-    onSave: (String) -> Unit,
+    onSave: (NotificationNote) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var noteText by remember { mutableStateOf("") }
+    var noteText by remember { mutableStateOf(NotificationNote("", "")) }
 
     // Center the dialog card in the screen
     Card(
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(32.dp),
         modifier = modifier
-            .padding(8.dp)
+            .padding(bottom = 32.dp)
             .fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = "New Note", style = MaterialTheme.typography.headlineSmall)
-            Spacer(modifier = Modifier.height(8.dp))
-            TextField(
-                value = noteText,
-                onValueChange = { noteText = it },
-                placeholder = { Text("Enter your note here") },
-                modifier = Modifier.fillMaxWidth()
+        Column(modifier = Modifier.padding(24.dp)) {
+            BoxWithConstraints(modifier = Modifier
+                .clipToBounds()
+            ) {
+                TextField(
+                    value = noteText.title,
+                    onValueChange = { noteText = noteText.copy(title = it) },
+                    modifier = Modifier.fillMaxWidth().padding(0.dp).requiredWidth(maxWidth+16.dp)
+                        .offset(x=(-8).dp),
+                    placeholder = { Text(text = "New Note", style = TextStyle(fontSize = MaterialTheme.typography.titleLarge.fontSize)) },
+                    textStyle = MaterialTheme.typography.titleLarge,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            BasicTextField(
+                value = noteText.body,
+                onValueChange = { noteText = noteText.copy(body = it) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(0.dp),
+                decorationBox = { innerTextField ->
+                    if (noteText.body.isEmpty()) {
+                        Text(
+                            text = "Enter your note here",
+                            style = TextStyle(fontSize = MaterialTheme.typography.bodyMedium.fontSize),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    innerTextField()
+                },
+                textStyle = TextStyle(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = MaterialTheme.typography.bodyMedium.fontSize
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Row(
@@ -114,7 +157,6 @@ fun NoteDialog(
                 TextButton(onClick = onDismiss) {
                     Text("Cancel")
                 }
-                Spacer(modifier = Modifier.width(8.dp))
                 Button(onClick = { onSave(noteText) }) {
                     Text("Save")
                 }
