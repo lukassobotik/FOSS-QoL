@@ -1,11 +1,13 @@
 package dev.lukassobotik.fossqol
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -52,6 +54,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        createNotificationChannel(this)
         setContent {
             FOSSQoLTheme {
                 settingsScreen(
@@ -244,4 +247,19 @@ fun getAppVersion(context: Context): String {
     } catch (e: PackageManager.NameNotFoundException) {
         "latest"
     }.toString()
+}
+
+fun createNotificationChannel(context: Context) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channel = NotificationChannel(
+            Notifications.NOTES,
+            "Notes",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Notification notes"
+        }
+        val notificationManager: NotificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
+    }
 }
