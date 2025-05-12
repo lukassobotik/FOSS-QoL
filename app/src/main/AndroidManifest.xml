@@ -121,6 +121,8 @@
                     android:resource="@xml/filepaths"/>
         </provider>
 
+        <receiver android:name=".NotificationDeleteReceiver" android:exported="false"/>
+
     </application>
 
 </manifest>

@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        createNotificationChannel(this)
+        createNotificationNotes(this)
         setContent {
             FOSSQoLTheme {
                 settingsScreen(
@@ -247,6 +247,13 @@ fun getAppVersion(context: Context): String {
     } catch (e: PackageManager.NameNotFoundException) {
         "latest"
     }.toString()
+}
+
+fun createNotificationNotes(context: Context) {
+    createNotificationChannel(context)
+    NotificationNoteStorage.loadNotes(context).forEach {
+        pushNotificationNote(context, it)
+    }
 }
 
 fun createNotificationChannel(context: Context) {
