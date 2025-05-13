@@ -8,11 +8,20 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Base64
 import android.widget.RemoteViews
-import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import java.io.File
+
+const val GROUP_NOTIFICATION_NOTES = "dev.lukassobotik.fossqol.NotificationNoteGroup"
+const val ACTION_NOTE_REMOVED = "dev.lukassobotik.fossqol.NoteRemoved"
+
+data class NotificationNote (
+    val id: Int,
+    val title: String,
+    val body: String,
+    val timestamp: Long = System.currentTimeMillis(),
+)
 
 object NotificationNoteStorage {
     private const val FILE_NAME = "notification_notes.csv"
@@ -74,30 +83,37 @@ object NotificationNoteStorage {
 class NotificationDeleteReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val noteId = intent.getIntExtra("note_id", -1)
-        Toast.makeText(context, "Note deleted $noteId", Toast.LENGTH_LONG).show()
         if (noteId != -1) {
-            // Remove the note from storage
             val existingNotes = NotificationNoteStorage.loadNotes(context)
             val updatedNotes = existingNotes.filter { it.id != noteId }
             NotificationNoteStorage.saveNotes(context, updatedNotes)
 
-            // Cancel the notification
             val notificationManager = NotificationManagerCompat.from(context)
             notificationManager.cancel(noteId)
         }
     }
 }
 
-fun pushNotificationNote(context: Context, note: NotificationNote = NotificationNote(0, "", "")) {
-    val GROUP_NOTIFICATION_NOTES = "dev.lukassobotik.fossqol.NotificationNoteGroup"
+class NotificationRepostReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != ACTION_NOTE_REMOVED) return
 
+        val noteId = intent.getIntExtra("note_id", -1)
+        if (noteId == -1) return
+
+        val note = NotificationNoteStorage.getNoteById(context, noteId) ?: return
+        pushNotificationNote(context, note)
+    }
+}
+
+fun pushNotificationNote(context: Context, note: NotificationNote = NotificationNote(0, "", "")) {
     val noteTitle = note.title.ifEmpty { context.getString(R.string.notes) }
 
-    val remoteViews = RemoteViews(context.packageName, R.layout.notification_checklist)
+    val remoteViews = RemoteViews(context.packageName, R.layout.collapsed_notification_note)
     remoteViews.setTextViewText(R.id.notification_header, noteTitle)
     remoteViews.setTextViewText(R.id.notification_note, note.body)
 
-    val extendedRemoteViews = RemoteViews(context.packageName, R.layout.extended_notification_checklist)
+    val extendedRemoteViews = RemoteViews(context.packageName, R.layout.extended_notification_note)
     extendedRemoteViews.setTextViewText(R.id.notification_header, noteTitle)
     extendedRemoteViews.setTextViewText(R.id.notification_note, note.body)
 
@@ -111,6 +127,13 @@ fun pushNotificationNote(context: Context, note: NotificationNote = Notification
     }
     val deletePendingIntent: PendingIntent = PendingIntent.getBroadcast(context, note.id, deleteIntent, PendingIntent.FLAG_IMMUTABLE)
 
+    val dismissIntent = PendingIntent.getBroadcast(
+        context, note.id, Intent(context, NotificationRepostReceiver::class.java)
+            .setAction(ACTION_NOTE_REMOVED)
+            .putExtra("note_id", note.id),
+        PendingIntent.FLAG_IMMUTABLE
+    )
+
     val notification = NotificationCompat.Builder(context, Notifications.NOTES)
         .setSmallIcon(R.drawable.note_stack)
         .setSubText(context.getString(R.string.notes))
@@ -118,6 +141,9 @@ fun pushNotificationNote(context: Context, note: NotificationNote = Notification
         .setCustomBigContentView(extendedRemoteViews)
         .setStyle(NotificationCompat.DecoratedCustomViewStyle())
         .setContentIntent(pendingIntent)
+        .setDeleteIntent(dismissIntent)
+        .setOngoing(true)
+        .setAutoCancel(false)
         .setPriority(NotificationCompat.PRIORITY_DEFAULT)
         .setCategory(NotificationCompat.CATEGORY_REMINDER)
         .setGroup(GROUP_NOTIFICATION_NOTES)
