@@ -11,6 +11,7 @@ import android.widget.RemoteViews
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import dev.lukassobotik.fossqol.NotificationNoteStorage.deleteNote
 import java.io.File
 
 const val GROUP_NOTIFICATION_NOTES = "dev.lukassobotik.fossqol.NotificationNoteGroup"
@@ -84,9 +85,7 @@ class NotificationDeleteReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val noteId = intent.getIntExtra("note_id", -1)
         if (noteId != -1) {
-            val existingNotes = NotificationNoteStorage.loadNotes(context)
-            val updatedNotes = existingNotes.filter { it.id != noteId }
-            NotificationNoteStorage.saveNotes(context, updatedNotes)
+            deleteNote(context, noteId)
 
             val notificationManager = NotificationManagerCompat.from(context)
             notificationManager.cancel(noteId)
