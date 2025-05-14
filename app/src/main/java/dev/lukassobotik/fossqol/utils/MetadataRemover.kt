@@ -1,4 +1,4 @@
-package dev.lukassobotik.fossqol
+package dev.lukassobotik.fossqol.utils
 
 import android.content.Context
 import android.graphics.Bitmap

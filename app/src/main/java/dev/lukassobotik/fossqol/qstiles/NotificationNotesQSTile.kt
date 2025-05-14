@@ -1,4 +1,4 @@
-package dev.lukassobotik.fossqol
+package dev.lukassobotik.fossqol.qstiles
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
@@ -7,6 +7,8 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import dev.lukassobotik.fossqol.NotificationNoteActivity
+import dev.lukassobotik.fossqol.R
 
 class NotificationNotesQSTile: TileService() {
     data class StateModel(val enabled: Boolean, val label: String, val icon: Icon)

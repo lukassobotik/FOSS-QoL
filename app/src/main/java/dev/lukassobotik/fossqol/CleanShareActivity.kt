@@ -26,6 +26,7 @@ import coil3.compose.rememberAsyncImagePainter
 import dev.lukassobotik.fossqol.ui.theme.FOSSQoLTheme
 import dev.lukassobotik.fossqol.utils.CreateDocumentRequest
 import dev.lukassobotik.fossqol.utils.registerShareToSaveLauncher
+import dev.lukassobotik.fossqol.utils.removeMetadata
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

@@ -82,7 +82,7 @@
         </activity>
 
         <service
-                android:name=".OpenAppQSTile"
+                android:name=".qstiles.OpenAppQSTile"
                 android:exported="true"
                 android:icon="@drawable/qol_logo"
                 android:label="@string/foss_qol_settings"
@@ -97,7 +97,7 @@
         </service>
 
         <service
-                android:name=".NotificationNotesQSTile"
+                android:name=".qstiles.NotificationNotesQSTile"
                 android:exported="true"
                 android:icon="@drawable/note_stack_add"
                 android:label="@string/new_note"
