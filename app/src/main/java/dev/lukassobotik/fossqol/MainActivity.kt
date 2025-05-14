@@ -28,26 +28,27 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import dev.lukassobotik.fossqol.ui.theme.FOSSQoLTheme
 import dev.lukassobotik.fossqol.utils.GitHubIssueUrlBuilder
 
-enum class ToolOption(val title: String, val description: String, val icon: IconData?, val activityClass: Class<*>) {
-    QR_SHARE("QR Share", "Share text with a QR Code.", IconData.VectorIcon(Icons.Rounded.QrCode), QRShareActivity::class.java),
-    CLEAN_SHARE("Clean Share", "Remove metadata from files and compress.", IconData.VectorIcon(Icons.Rounded.Share), CleanShareActivity::class.java),
+enum class ToolOption(
+    val title: String,
+    val description: String,
+    val drawableResourceId: Int?,
+    val imageVector: ImageVector?,
+    val activityClass: Class<*>
+) {
+    QR_SHARE("QR Share", "Share text with a QR Code.", null, Icons.Rounded.QrCode, QRShareActivity::class.java),
+    CLEAN_SHARE("Clean Share", "Remove metadata from files and compress.", null, Icons.Rounded.Share, CleanShareActivity::class.java),
+    NOTIFICATION_NOTES("Notification Notes", "Take notes that appear in your notification panel.", R.drawable.note_stack_add, null, NotificationNoteActivity::class.java);
 }
 
 sealed class OnToolClick {
     data class Action(val action: () -> Unit) : OnToolClick()
     data class Url(val url: String) : OnToolClick()
-}
-
-sealed class IconData {
-    data class PainterIcon(val painter: Painter): IconData()
-    data class VectorIcon(val imageVector: ImageVector): IconData()
 }
 
 class MainActivity : ComponentActivity() {
@@ -98,7 +99,8 @@ fun settingsScreen(context: Context, modifier: Modifier = Modifier, onToolClick:
                         headline = tool.title,
                         description = tool.description,
                         onToolClick = OnToolClick.Action{ onToolClick(tool) },
-                        icon = tool.icon
+                        iconResId = tool.drawableResourceId,
+                        imageVector = tool.imageVector
                     )
                 }
             }
@@ -108,7 +110,8 @@ fun settingsScreen(context: Context, modifier: Modifier = Modifier, onToolClick:
                     headline = "Share To Save",
                     description = "Share any image / video to save it to your device. \nTo use, share any file from your device and select \"Share To Save\".",
                     onToolClick = null,
-                    icon = IconData.VectorIcon(Icons.Rounded.Save)
+                    iconResId = null,
+                    imageVector = Icons.Rounded.Save
                 )
             }
             item {
@@ -124,8 +127,8 @@ fun settingsScreen(context: Context, modifier: Modifier = Modifier, onToolClick:
                     headline = "Github",
                     description = "Access the source code on  the GitHub repository.",
                     onToolClick = OnToolClick.Url("https://github.com/lukassobotik/foss-qol"),
-                    icon = IconData.PainterIcon(painterResource(id = R.drawable.github_logo))
-
+                    iconResId = R.drawable.github_logo,
+                    imageVector = null
                 )
             }
             item {
@@ -134,13 +137,13 @@ fun settingsScreen(context: Context, modifier: Modifier = Modifier, onToolClick:
                     headline = "BuyMeACoffee",
                     description = "Support the project by contributing through BuyMeACoffee.",
                     onToolClick = OnToolClick.Url("https://www.buymeacoffee.com/lukassobotik"),
-                    icon = IconData.PainterIcon(painterResource(id = R.drawable.buymeacoffee_logo))
+                    iconResId = R.drawable.buymeacoffee_logo,
+                    imageVector = null
                 )
             }
         }
     }
 }
-
 
 @Composable
 fun settingsNewActivityCard(
@@ -148,25 +151,24 @@ fun settingsNewActivityCard(
     headline: String,
     description: String,
     onToolClick: OnToolClick?,
-    icon: IconData? = null
+    iconResId: Int? = null,
+    imageVector: ImageVector? = null
 ) {
+    val painter = iconResId?.let { painterResource(id = it) }
+
     ListItem(
         leadingContent = {
-            when (icon) {
-                is IconData.PainterIcon ->
-                    Icon(
-                        painter = icon.painter,
-                        contentDescription = headline,
-                        modifier = Modifier.size(24.dp),
-                    )
-
-                is IconData.VectorIcon ->
-                    Icon(
-                        imageVector = icon.imageVector,
-                        contentDescription = headline,
-                        modifier = Modifier.size(24.dp)
-                    )
-                null -> {}
+            when {
+                painter != null -> Icon(
+                    painter = painter,
+                    contentDescription = headline,
+                    modifier = Modifier.size(24.dp)
+                )
+                imageVector != null -> Icon(
+                    imageVector = imageVector,
+                    contentDescription = headline,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         },
         headlineContent = { Text(headline) },
@@ -184,7 +186,7 @@ fun settingsNewActivityCard(
             when (onToolClick) {
                 is OnToolClick.Action -> onToolClick.action()
                 is OnToolClick.Url -> context.openUrlInBrowser(onToolClick.url)
-                null -> { /* No action provided */ }
+                null -> { /* No action */ }
             }
         }
     )

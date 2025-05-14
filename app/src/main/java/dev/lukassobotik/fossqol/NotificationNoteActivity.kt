@@ -50,10 +50,9 @@ class NotificationNoteActivity : ComponentActivity() {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(0.dp)
+                        .padding(8.dp)
                         .imePadding()
                 ) {
-                    // Place the note dialog at the bottom center.
                     NoteDialog(
                         context = this@NotificationNoteActivity,
                         onDismiss = { finish() },
@@ -62,6 +61,7 @@ class NotificationNoteActivity : ComponentActivity() {
                             finish()
                         },
                         modifier = Modifier
+                            .fillMaxWidth()
                             .align(Alignment.BottomCenter)
                     )
                 }
@@ -120,19 +120,20 @@ fun NoteDialog(
         }
     }
 
-    // Center the dialog card in the screen
     Card(
         shape = RoundedCornerShape(32.dp),
         modifier = modifier
-            .padding(bottom = 32.dp)
+            .padding(0.dp)
             .fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         )
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
             BoxWithConstraints(modifier = Modifier
                 .clipToBounds()
+                .padding(top = 16.dp)
             ) {
                 TextField(
                     value = noteText.title,

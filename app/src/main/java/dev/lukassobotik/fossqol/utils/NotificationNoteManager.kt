@@ -17,6 +17,10 @@ import java.io.File
 const val GROUP_NOTIFICATION_NOTES = "dev.lukassobotik.fossqol.NotificationNoteGroup"
 const val ACTION_NOTE_REMOVED = "dev.lukassobotik.fossqol.NoteRemoved"
 
+object Notifications {
+    const val NOTES = "NOTES"
+}
+
 data class NotificationNote (
     val id: Int,
     val title: String,
