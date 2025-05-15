@@ -1,4 +1,4 @@
-package dev.lukassobotik.fossqol
+package dev.lukassobotik.fossqol.qstiles
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
@@ -7,8 +7,10 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import dev.lukassobotik.fossqol.NotificationNoteActivity
+import dev.lukassobotik.fossqol.R
 
-class OpenAppQSTile: TileService() {
+class NotificationNotesQSTile: TileService() {
     data class StateModel(val enabled: Boolean, val label: String, val icon: Icon)
 
     // Called when the user adds your tile.
@@ -31,13 +33,14 @@ class OpenAppQSTile: TileService() {
         super.onClick()
         qsTile.apply {
             state = Tile.STATE_INACTIVE
-            label = getString(R.string.foss_qol_settings)
+            label = getString(R.string.new_note)
             updateTile()
         }
-        val intent = Intent(this, MainActivity::class.java)
+
+        val intent = Intent(this, NotificationNoteActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivityAndCollapse(pendingIntent)
         } else {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

@@ -55,6 +55,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(libs.exif)
     implementation(libs.androidx.material.icons.extended)
+    implementation(libs.androidx.runtime)
 
     implementation(libs.qrose)
     implementation(libs.coil)

@@ -7,4 +7,8 @@
     <string name="qr_share">QR Share</string>
     <string name="title_activity_clean_share">CleanShareActivity</string>
     <string name="cleanshare">Clean Share</string>
+    <string name="new_note">New Note</string>
+    <string name="notes">Notes</string>
+    <string name="title_activity_notification_note">NotificationNoteActivity</string>
+    <string name="delete">Delete</string>
 </resources>
