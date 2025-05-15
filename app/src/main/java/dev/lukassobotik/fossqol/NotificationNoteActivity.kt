@@ -45,6 +45,9 @@ class NotificationNoteActivity : ComponentActivity() {
             Toast.makeText(this@NotificationNoteActivity, "Notification permission is not granted", Toast.LENGTH_LONG).show()
         }
 
+        val noteId = intent.getIntExtra("note_id", -1)
+        val editingNote = if (noteId != -1) NotificationNoteStorage.getNoteById(this, noteId) else null
+
         setContent {
             FOSSQoLTheme {
                 Box(
@@ -55,9 +58,10 @@ class NotificationNoteActivity : ComponentActivity() {
                 ) {
                     NoteDialog(
                         context = this@NotificationNoteActivity,
+                        initialNote = editingNote,
                         onDismiss = { finish() },
                         onSave = { note ->
-                            handleNoteSave(note)
+                            handleNoteSave(note, isEditing = editingNote != null)
                             finish()
                         },
                         modifier = Modifier
@@ -69,11 +73,19 @@ class NotificationNoteActivity : ComponentActivity() {
         }
     }
 
-    private fun handleNoteSave(note: NotificationNote) {
-        val existingNotes = NotificationNoteStorage.loadNotes(this)
-        val newNote = note.copy(id = NotificationNoteStorage.generateNextId(this))
-        val updatedNotes = existingNotes + newNote
-        NotificationNoteStorage.saveNotes(this, updatedNotes)
+    private fun handleNoteSave(note: NotificationNote, isEditing: Boolean) {
+        val notes = NotificationNoteStorage.loadNotes(this).toMutableList()
+        val finalNote = if (isEditing) {
+            val index = notes.indexOfFirst { it.id == note.id }
+            if (index != -1) notes[index] = note else notes.add(note)
+            note
+        } else {
+            val newNote = note.copy(id = NotificationNoteStorage.generateNextId(this))
+            notes.add(newNote)
+            newNote
+        }
+
+        NotificationNoteStorage.saveNotes(this, notes)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -81,9 +93,8 @@ class NotificationNoteActivity : ComponentActivity() {
             requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             Toast.makeText(this, "Notification permission is not granted", Toast.LENGTH_SHORT).show()
         } else {
-            pushNotificationNote(this, newNote)
+            pushNotificationNote(this, finalNote)
         }
-        finish()
     }
 }
 
@@ -100,11 +111,12 @@ fun isNotificationPermissionGranted(context: Context): Boolean {
 @Composable
 fun NoteDialog(
     context: Context,
+    initialNote: NotificationNote? = null,
     onDismiss: () -> Unit,
     onSave: (NotificationNote) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var noteText by remember { mutableStateOf(NotificationNote(0, "", "")) }
+    var noteText by remember { mutableStateOf(initialNote ?: NotificationNote(0, "", "")) }
     var isPermissionGranted by remember { mutableStateOf(isNotificationPermissionGranted(context)) }
     val lifecycleOwner = LocalLifecycleOwner.current
 

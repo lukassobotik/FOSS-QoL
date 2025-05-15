@@ -120,10 +120,11 @@ fun pushNotificationNote(context: Context, note: NotificationNote = Notification
     extendedRemoteViews.setTextViewText(R.id.notification_header, noteTitle)
     extendedRemoteViews.setTextViewText(R.id.notification_note, note.body)
 
-    val intent = Intent(context, MainActivity::class.java).apply {
+    val intent = Intent(context, NotificationNoteActivity::class.java).apply {
+        putExtra("note_id", note.id)
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
     }
-    val pendingIntent: PendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+    val pendingIntent: PendingIntent = PendingIntent.getActivity(context, note.id, intent, PendingIntent.FLAG_IMMUTABLE)
 
     val deleteIntent = Intent(context, NotificationDeleteReceiver::class.java).apply {
         putExtra("note_id", note.id)
