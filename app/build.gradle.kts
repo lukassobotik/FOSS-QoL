@@ -56,6 +56,9 @@ dependencies {
     implementation(libs.exif)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.runtime)
+    implementation(libs.androidx.glance)
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
 
     implementation(libs.qrose)
     implementation(libs.coil)
