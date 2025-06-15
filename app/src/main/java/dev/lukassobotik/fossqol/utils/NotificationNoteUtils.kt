@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Base64
+import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
@@ -115,10 +116,12 @@ fun pushNotificationNote(context: Context, note: NotificationNote = Notification
     val remoteViews = RemoteViews(context.packageName, R.layout.collapsed_notification_note)
     remoteViews.setTextViewText(R.id.notification_header, noteTitle)
     remoteViews.setTextViewText(R.id.notification_note, note.body)
+    if (note.body.isEmpty()) remoteViews.setViewVisibility(R.id.notification_note, View.GONE)
 
     val extendedRemoteViews = RemoteViews(context.packageName, R.layout.extended_notification_note)
     extendedRemoteViews.setTextViewText(R.id.notification_header, noteTitle)
     extendedRemoteViews.setTextViewText(R.id.notification_note, note.body)
+    if (note.body.isEmpty()) extendedRemoteViews.setViewVisibility(R.id.notification_note, View.GONE)
 
     val intent = Intent(context, NotificationNoteActivity::class.java).apply {
         putExtra("note_id", note.id)
