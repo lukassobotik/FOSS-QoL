@@ -113,11 +113,6 @@ class NotificationRepostReceiver : BroadcastReceiver() {
 fun pushNotificationNote(context: Context, note: NotificationNote = NotificationNote(0, "", "")) {
     val noteTitle = note.title.ifEmpty { context.getString(R.string.notes) }
 
-    val remoteViews = RemoteViews(context.packageName, R.layout.collapsed_notification_note)
-    remoteViews.setTextViewText(R.id.notification_header, noteTitle)
-    remoteViews.setTextViewText(R.id.notification_note, note.body)
-    if (note.body.isEmpty()) remoteViews.setViewVisibility(R.id.notification_note, View.GONE)
-
     val extendedRemoteViews = RemoteViews(context.packageName, R.layout.extended_notification_note)
     extendedRemoteViews.setTextViewText(R.id.notification_header, noteTitle)
     extendedRemoteViews.setTextViewText(R.id.notification_note, note.body)
@@ -144,7 +139,8 @@ fun pushNotificationNote(context: Context, note: NotificationNote = Notification
     val notification = NotificationCompat.Builder(context, Notifications.NOTES)
         .setSmallIcon(R.drawable.note_stack)
         .setSubText(context.getString(R.string.notes))
-        .setCustomContentView(remoteViews)
+        .setContentTitle(note.title)
+        .setContentText(note.body)
         .setCustomBigContentView(extendedRemoteViews)
         .setStyle(NotificationCompat.DecoratedCustomViewStyle())
         .setContentIntent(pendingIntent)
@@ -156,23 +152,13 @@ fun pushNotificationNote(context: Context, note: NotificationNote = Notification
         .setGroup(GROUP_NOTIFICATION_NOTES)
         .addAction(R.drawable.rounded_delete_forever, context.getString(R.string.delete), deletePendingIntent)
 
-    with(NotificationManagerCompat.from(context)) {
-        if (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // TODO: Consider calling
-            // ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            // public fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>,
-            //                                        grantResults: IntArray)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
+    pushNotification(context, note.id, notification)
+}
 
-            return@with
-        }
-
-        notify(note.id, notification.build())
+private fun pushNotification(context: Context, id: Int, notification: NotificationCompat.Builder) {
+    if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+        return
     }
+
+    NotificationManagerCompat.from(context).notify(id, notification.build())
 }

@@ -260,15 +260,17 @@ fun createNotificationNotes(context: Context) {
 
 fun createNotificationChannel(context: Context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.deleteNotificationChannel(Notifications.NOTES)
+
         val channel = NotificationChannel(
             Notifications.NOTES,
             "Notes",
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "Notification notes"
+            description = context.getString(R.string.notification_note_channel_description)
         }
-        val notificationManager: NotificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
         notificationManager.createNotificationChannel(channel)
     }
 }
