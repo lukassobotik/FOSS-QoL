@@ -1,0 +1,10 @@
+<accessibility-service
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:accessibilityEventTypes="typeWindowContentChanged|typeViewScrolled"
+        android:accessibilityFeedbackType="feedbackSpoken"
+        android:notificationTimeout="100"
+        android:packageNames="org.mozilla.firefox"
+        android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
+        android:canRetrieveWindowContent="true"
+
+/>
