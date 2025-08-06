@@ -3,6 +3,7 @@
           xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
             android:allowBackup="true"
@@ -121,6 +122,18 @@
             <meta-data
                     android:name="android.accessibilityservice"
                     android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <service
+                android:name=".NotchTapService"
+                android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                    android:name="android.accessibilityservice"
+                    android:resource="@xml/accessibility_notch_tap_config" />
         </service>
 
         <provider
