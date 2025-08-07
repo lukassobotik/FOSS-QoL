@@ -113,8 +113,9 @@
         </service>
 
         <service
-                android:name=".BrowserAccessibilityService"
+                android:name=".CarryOverAccessibilityService"
                 android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+                android:label="@string/carry_over_service_label"
                 android:exported="false">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
@@ -122,18 +123,6 @@
             <meta-data
                     android:name="android.accessibilityservice"
                     android:resource="@xml/accessibility_service_config" />
-        </service>
-
-        <service
-                android:name=".NotchTapService"
-                android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-                android:exported="true">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                    android:name="android.accessibilityservice"
-                    android:resource="@xml/accessibility_notch_tap_config" />
         </service>
 
         <provider
