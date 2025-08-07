@@ -12,9 +12,12 @@
     <string name="title_activity_notification_note">NotificationNoteActivity</string>
     <string name="delete">Delete</string>
     <string name="notification_note_channel_description">Notification notes</string>
+    <string name="title_activity_carry_over">CarryOverActivity</string>
     <string name="carry_over_service_label">CarryOver</string>
     <string name="carry_over_service_summary">Continue your activity on your computer</string>
-    <string name="carry_over_service_intro">Easily continue anything you\'re doing on your computer!. \nRead more below.</string>
+    <string name="carry_over_service_intro">Easily continue anything you\'re doing to your computer!. \nRead more
+        below.
+    </string>
     <!-- TODO: describe how data travels through the local network.-->
     <string name="carry_over_service_description">
         Tap your camera cutout to instantly continue browsing your current page on your computer.
@@ -22,7 +25,8 @@
         \n1. Enable this accessibility service.
         \n2. Enable the \"Display over other apps\" permission in settings.
         \n3. Install the FOSS QoL Companion extension on Firefox.
-        \n\nThe app needs this permission to be able to detect the camera tap, what webpage you\'re currently on, and where on that page you are.
+        \n\nThe app needs this permission to be able to detect the camera tap, what webpage you\'re currently on, and
+        where on that page you are.
         \n\nWant to see exactly how it works? Check out the source code on https://github.com/lukassobotik/foss-qol.
     </string>
 </resources>

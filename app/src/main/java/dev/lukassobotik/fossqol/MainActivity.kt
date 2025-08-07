@@ -44,7 +44,8 @@ enum class ToolOption(
 ) {
     QR_SHARE("QR Share", "Share text with a QR Code.", null, Icons.Rounded.QrCode, QRShareActivity::class.java),
     CLEAN_SHARE("Clean Share", "Remove metadata from files and compress.", null, Icons.Rounded.Share, CleanShareActivity::class.java),
-    NOTIFICATION_NOTES("Notification Notes", "Take notes that appear in your notification panel.", R.drawable.note_stack_add, null, NotificationNoteActivity::class.java);
+    NOTIFICATION_NOTES("Notification Notes", "Take notes that appear in your notification panel.", R.drawable.note_stack_add, null, NotificationNoteActivity::class.java),
+    CARRY_OVER("Carry Over", "Continue browsing your current page on your computer.", R.drawable.carry_over, null, CarryOverActivity::class.java);
 }
 
 sealed class OnToolClick {
@@ -57,16 +58,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         createNotificationNotes(this)
-
-        if (!Settings.canDrawOverlays(this)) {
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
-            )
-            startActivityForResult(intent, 1234)
-        }
-
-
         setContent {
             FOSSQoLTheme {
                 settingsScreen(

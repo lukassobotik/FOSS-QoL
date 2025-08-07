@@ -11,4 +11,5 @@
         android:summary="@string/carry_over_service_summary"
         android:description="@string/carry_over_service_description"
         android:intro="@string/carry_over_service_intro"
+        android:settingsActivity=".CarryOverActivity"
 />

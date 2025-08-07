@@ -3,7 +3,7 @@
           xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
     <application
             android:allowBackup="true"
@@ -16,13 +16,18 @@
             android:theme="@style/Theme.FOSSQoL"
             tools:targetApi="31">
         <activity
+                android:name=".CarryOverActivity"
+                android:exported="false"
+                android:label="@string/title_activity_carry_over"
+                android:theme="@style/Theme.FOSSQoL"/>
+        <activity
                 android:name=".NotificationNoteActivity"
-                android:exported="true"
                 android:excludeFromRecents="true"
-                android:windowSoftInputMode="adjustResize"
-                android:noHistory="true"
+                android:exported="true"
                 android:label="@string/title_activity_notification_note"
-                android:theme="@style/Theme.TransparentDialog"/>
+                android:noHistory="true"
+                android:theme="@style/Theme.TransparentDialog"
+                android:windowSoftInputMode="adjustResize"/>
         <activity
                 android:name=".CleanShareActivity"
                 android:exported="true"
@@ -30,11 +35,12 @@
                 android:theme="@style/Theme.FOSSQoL">
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>
+
                 <category android:name="android.intent.category.DEFAULT"/>
+
                 <data android:mimeType="image/*"/>
             </intent-filter>
         </activity>
-
         <activity
                 android:name=".ShareToSaveActivity"
                 android:exported="true"
@@ -42,21 +48,26 @@
                 android:theme="@style/Theme.FOSSQoL">
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>
+
                 <category android:name="android.intent.category.DEFAULT"/>
+
                 <data android:mimeType="image/*"/>
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>
+
                 <category android:name="android.intent.category.DEFAULT"/>
+
                 <data android:mimeType="video/*"/>
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>
+
                 <category android:name="android.intent.category.DEFAULT"/>
+
                 <data android:mimeType="application/pdf"/>
             </intent-filter>
         </activity>
-
         <activity
                 android:name=".QRShareActivity"
                 android:exported="true"
@@ -70,7 +81,6 @@
                 <data android:mimeType="text/plain"/>
             </intent-filter>
         </activity>
-
         <activity
                 android:name=".MainActivity"
                 android:exported="true"
@@ -96,7 +106,6 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE"/>
             </intent-filter>
         </service>
-
         <service
                 android:name=".qstiles.NotificationNotesQSTile"
                 android:exported="true"
@@ -111,18 +120,18 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE"/>
             </intent-filter>
         </service>
-
         <service
                 android:name=".CarryOverAccessibilityService"
-                android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+                android:exported="false"
                 android:label="@string/carry_over_service_label"
-                android:exported="false">
+                android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
             </intent-filter>
+
             <meta-data
                     android:name="android.accessibilityservice"
-                    android:resource="@xml/accessibility_service_config" />
+                    android:resource="@xml/accessibility_service_config"/>
         </service>
 
         <provider
@@ -135,19 +144,23 @@
                     android:resource="@xml/filepaths"/>
         </provider>
 
-        <receiver android:name=".NotificationDeleteReceiver" android:exported="false"/>
-        <receiver android:name=".NotificationRepostReceiver" android:exported="false"/>
+        <receiver
+                android:name=".NotificationDeleteReceiver"
+                android:exported="false"/>
+        <receiver
+                android:name=".NotificationRepostReceiver"
+                android:exported="false"/>
         <receiver
                 android:name=".widgets.AppLauncherWidgetReceiver"
                 android:exported="true">
             <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
             </intent-filter>
+
             <meta-data
                     android:name="android.appwidget.provider"
-                    android:resource="@xml/app_launcher_widget_info" />
+                    android:resource="@xml/app_launcher_widget_info"/>
         </receiver>
-
     </application>
 
 </manifest>
