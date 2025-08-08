@@ -62,4 +62,6 @@ dependencies {
 
     implementation(libs.qrose)
     implementation(libs.coil)
+    implementation(libs.okhttp)
+    implementation(libs.bcprov.jdk18on)
 }

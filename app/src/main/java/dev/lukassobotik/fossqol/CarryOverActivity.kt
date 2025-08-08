@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
@@ -34,6 +35,9 @@ class CarryOverActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startClientExample()
+        }
         setContent {
             val tintColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color.White else Color.Black
             FOSSQoLTheme {
@@ -98,7 +102,6 @@ private fun activityScreen(context: Context) {
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
-        // Padded block (intro text)
         Column(modifier = Modifier.padding(horizontal = 24.dp).padding(top = 32.dp)) {
             Text(
                 text = "Tap your camera cutout to instantly continue browsing your current page on your computer.",
