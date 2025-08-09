@@ -30,8 +30,12 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
     private val base64 = Base64.getEncoder()
     private val base64Decoder = Base64.getDecoder()
 
+    private var webSocket: WebSocket? = null
     private var sessionKey: ByteArray? = null
     private val secureRandom = SecureRandom()
+    private var messageSeq = 1
+
+    private val pendingMessages = mutableListOf<ByteArray>()
 
     // ephemeral keys
     private val clientKeyPair: KeyPair by lazy { generateX25519KeyPair() }
@@ -45,6 +49,33 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
 
     private val client = OkHttpClient.Builder().build()
 
+    fun sendMessage(message: String) {
+        sendMessage(message.toByteArray(Charsets.UTF_8))
+    }
+
+    fun sendMessage(message: ByteArray) {
+        val key = sessionKey
+        val ws = webSocket
+
+        if (key != null && ws != null) {
+            val msgNonce = ByteArray(12).also { secureRandom.nextBytes(it) }
+            val ctAndTag = encryptChaCha20Poly1305(key, msgNonce, message)
+
+            val envelope = JSONObject().apply {
+                put("seq", messageSeq++)
+                put("iv", base64.encodeToString(msgNonce))
+                put("ct", base64.encodeToString(ctAndTag))
+                put("enc", true)
+            }
+
+            ws.send(envelope.toString())
+            Log.d("CarryOverClient", "[client] Sent encrypted message: ${String(message)}")
+        } else {
+            pendingMessages.add(message)
+            Log.d("CarryOverClient", "[client] Queued message: ${String(message)}")
+        }
+    }
+
     fun start() {
         val request = Request.Builder().url(wsUrl).build()
         client.newWebSocket(request, socketListener)
@@ -52,6 +83,7 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
 
     private val socketListener = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
+            this@CarryOverClient.webSocket = webSocket
             Log.d("CarryOverClient", "[client] Connected to server")
             val hello = JSONObject().apply {
                 put("type", "HELLO")
@@ -70,7 +102,7 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
         }
 
         override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-            // support binary if needed
+            // support binary
             onMessage(webSocket, bytes.utf8())
         }
 
@@ -87,7 +119,6 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
         var msgIv = msg.optString("iv", null)
 
         if (msg.optBoolean("enc", false)) {
-            // Encrypted message: decrypt using sessionKey
             try {
                 val iv = base64Decoder.decode(msgIv)
                 val ciphertextAndTag = base64Decoder.decode(msgCt)
@@ -135,24 +166,15 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
                 sessionKey = hkdfSha256(sharedSecret, salt, info, 32)
                 Log.d("CarryOverClient", "[client] Session key derived: ${sessionKey!!.toHexString()}")
 
-                // Encrypt test payload with ChaCha20-Poly1305
-                val testPayload = "Hello from Kotlin client!".toByteArray(Charsets.UTF_8)
-                val msgNonce = ByteArray(12).also { secureRandom.nextBytes(it) }
-
-                val ctAndTag = encryptChaCha20Poly1305(sessionKey!!, msgNonce, testPayload)
-
-                val ctB64 = base64.encodeToString(ctAndTag)
-                val ivB64 = base64.encodeToString(msgNonce)
-
-                val envelope = JSONObject().apply {
-                    put("seq", 1)
-                    put("iv", ivB64)
-                    put("ct", ctB64)
-                    put("enc", true)
+                // Send any queued messages now
+                if (pendingMessages.isNotEmpty()) {
+                    Log.d("CarryOverClient", "[client] Sending ${pendingMessages.size} queued messages")
+                    val queued = pendingMessages.toList()
+                    pendingMessages.clear()
+                    queued.forEach { sendMessage(it) }
                 }
 
-                ws.send(envelope.toString())
-                Log.d("CarryOverClient", "[client] Sent encrypted test message.")
+                sendMessage("Hello from kotlin client!")
             }
 
             "ACK" -> {
@@ -246,9 +268,11 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
     }
 }
 
-// Usage (for example from an Activity or any thread)
 @RequiresApi(Build.VERSION_CODES.O)
 fun startClientExample() {
     val client = CarryOverClient()
-    thread { client.start() }
+    thread {
+        client.start()
+        client.sendMessage("Hello from kotlin client!")
+    }
 }
