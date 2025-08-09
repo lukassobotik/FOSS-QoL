@@ -1,5 +1,6 @@
 package dev.lukassobotik.fossqol
 
+import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -23,7 +24,7 @@ import kotlin.concurrent.thread
 
 // TODO: Handle unsupported versions
 @RequiresApi(Build.VERSION_CODES.O)
-class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
+class CarryOverClient(private val context: Context, private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
     // DER header used in Node.js ("302a300506032b656e032100" hex)
     private val X25519_SPKE_DER_HEADER = hexStringToByteArray("302a300506032b656e032100")
 
@@ -35,7 +36,9 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
     private val secureRandom = SecureRandom()
     private var messageSeq = 1
 
-    private val pendingMessages = mutableListOf<ByteArray>()
+    // Queues for messages sent before the session key is ready
+    private val pendingRawMessages = mutableListOf<ByteArray>()
+    private val pendingJsonMessages = mutableListOf<JSONObject>()
 
     // ephemeral keys
     private val clientKeyPair: KeyPair by lazy { generateX25519KeyPair() }
@@ -49,10 +52,17 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
 
     private val client = OkHttpClient.Builder().build()
 
+    // persistent per-install device ID (8 random bytes hex)
+    private val deviceId: String by lazy { getOrCreateDeviceId() }
+
     fun sendMessage(message: String) {
         sendMessage(message.toByteArray(Charsets.UTF_8))
     }
 
+    /**
+     * Raw byte payload encryption path.
+     * Uses sessionKey if present, otherwise queues.
+     */
     fun sendMessage(message: ByteArray) {
         val key = sessionKey
         val ws = webSocket
@@ -66,13 +76,46 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
                 put("iv", base64.encodeToString(msgNonce))
                 put("ct", base64.encodeToString(ctAndTag))
                 put("enc", true)
+                put("from_device", deviceId)
             }
 
             ws.send(envelope.toString())
-            Log.d("CarryOverClient", "[client] Sent encrypted message: ${String(message)}")
+            Log.d("CarryOverClient", "[client:$deviceId] Sent encrypted message: ${String(message)}")
         } else {
-            pendingMessages.add(message)
-            Log.d("CarryOverClient", "[client] Queued message: ${String(message)}")
+            pendingRawMessages.add(message)
+            Log.d("CarryOverClient", "[client:$deviceId] Queued message: ${String(message)}")
+        }
+    }
+
+    /**
+     * Send a structured JSON object encrypted (mirrors JS sendEncrypted).
+     * Adds seq and from_device automatically. Queues until session established.
+     */
+    fun sendEncrypted(obj: JSONObject) {
+        val key = sessionKey
+        val ws = webSocket
+
+        // attach seq and from_device before encrypting
+        obj.put("seq", messageSeq++)
+        obj.put("from_device", deviceId)
+
+        val plaintext = obj.toString().toByteArray(Charsets.UTF_8)
+        if (key != null && ws != null) {
+            val msgNonce = ByteArray(12).also { secureRandom.nextBytes(it) }
+            val ctAndTag = encryptChaCha20Poly1305(key, msgNonce, plaintext)
+
+            val envelope = JSONObject().apply {
+                put("iv", base64.encodeToString(msgNonce))
+                put("ct", base64.encodeToString(ctAndTag))
+                put("enc", true)
+                put("seq", obj.getInt("seq"))
+                put("from_device", obj.getString("from_device"))
+            }
+            ws.send(envelope.toString())
+            Log.d("CarryOverClient", "[client:$deviceId] Sent encrypted JSON: ${obj}")
+        } else {
+            pendingJsonMessages.add(obj)
+            Log.d("CarryOverClient", "[client:$deviceId] Queued JSON message: ${obj}")
         }
     }
 
@@ -84,11 +127,12 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
     private val socketListener = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
             this@CarryOverClient.webSocket = webSocket
-            Log.d("CarryOverClient", "[client] Connected to server")
+            Log.d("CarryOverClient", "[client:$deviceId] Connected to server")
             val hello = JSONObject().apply {
                 put("type", "HELLO")
                 put("client_pk", base64.encodeToString(clientPubRaw))
                 put("nonce", base64.encodeToString(nonceC))
+                put("device_id", deviceId)
             }
             webSocket.send(hello.toString())
         }
@@ -97,7 +141,7 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
             try {
                 handleMessage(webSocket, JSONObject(text))
             } catch (e: Exception) {
-                Log.d("CarryOverClient", "[client] Non-JSON or handling error: ${e.localizedMessage}")
+                Log.d("CarryOverClient", "[client:$deviceId] Non-JSON or handling error: ${e.localizedMessage}")
             }
         }
 
@@ -107,38 +151,40 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            Log.d("CarryOverClient", "[client] WebSocket failure: ${t.localizedMessage}")
+            Log.d("CarryOverClient", "[client:$deviceId] WebSocket failure: ${t.localizedMessage}")
         }
     }
 
-    private fun handleMessage(ws: WebSocket, msg: JSONObject) {
-        Log.d("CarryOverClient", "[client] Received: $msg")
+    private fun handleMessage(ws: WebSocket, rawMsg: JSONObject) {
+        Log.d("CarryOverClient", "[client:$deviceId] Received (raw): $rawMsg")
 
-        var msgType = msg.optString("type", "")
-        var msgCt = msg.optString("ct", null)
-        var msgIv = msg.optString("iv", null)
-
-        if (msg.optBoolean("enc", false)) {
+        // If message is marked encrypted, decrypt into an effectiveMsg, else use rawMsg.
+        val effectiveMsg: JSONObject = if (rawMsg.optBoolean("enc", false)) {
             try {
-                val iv = base64Decoder.decode(msgIv)
-                val ciphertextAndTag = base64Decoder.decode(msgCt)
-                val plaintext = decryptChaCha20Poly1305(sessionKey
-                    ?: throw IllegalStateException("sessionKey not set"), iv, ciphertextAndTag)
-                val json = JSONObject(String(plaintext))
-                msgType = json.getString("type")
-                msgCt = json.optString("ct", null)
-                msgIv = json.optString("iv", null)
-                Log.d("CarryOverClient", "[client] Decrypted message: ${String(plaintext)}")
+                val iv = base64Decoder.decode(rawMsg.getString("iv"))
+                val ciphertextAndTag = base64Decoder.decode(rawMsg.getString("ct"))
+                val plaintext = decryptChaCha20Poly1305(
+                    sessionKey ?: throw IllegalStateException("sessionKey not set"),
+                    iv,
+                    ciphertextAndTag
+                )
+                val decoded = JSONObject(String(plaintext))
+                Log.d("CarryOverClient", "[client:$deviceId] Decrypted message: $decoded")
+                decoded
             } catch (e: Exception) {
-                Log.d("CarryOverClient", "[client] Failed to decrypt message: ${e.localizedMessage}")
+                Log.d("CarryOverClient", "[client:$deviceId] Failed to decrypt message: ${e.localizedMessage}")
                 return
             }
+        } else {
+            rawMsg
         }
+
+        val msgType = effectiveMsg.optString("type", "")
 
         when (msgType) {
             "WELCOME" -> {
                 // ECDH shared secret
-                val serverPubRaw = base64Decoder.decode(msg.getString("server_pk"))
+                val serverPubRaw = base64Decoder.decode(effectiveMsg.getString("server_pk"))
 
                 // reconstruct SPKI DER (header + raw)
                 val serverSpki = ByteBuffer.allocate(X25519_SPKE_DER_HEADER.size + serverPubRaw.size)
@@ -155,7 +201,7 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
                 val sharedSecret = keyAgreement.generateSecret()
 
                 // HKDF-SHA256
-                val nonceS = base64Decoder.decode(msg.getString("nonce"))
+                val nonceS = base64Decoder.decode(effectiveMsg.getString("nonce"))
                 val salt = ByteArray(32) // 32 zero bytes
                 val info = ByteBuffer.allocate("carryover-1".toByteArray().size + nonceC.size + nonceS.size)
                     .put("carryover-1".toByteArray(Charsets.UTF_8))
@@ -164,26 +210,59 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
                     .array()
 
                 sessionKey = hkdfSha256(sharedSecret, salt, info, 32)
-                Log.d("CarryOverClient", "[client] Session key derived: ${sessionKey!!.toHexString()}")
+                Log.d("CarryOverClient", "[client:$deviceId] Session key derived: ${sessionKey!!.toHexString()}")
 
-                // Send any queued messages now
-                if (pendingMessages.isNotEmpty()) {
-                    Log.d("CarryOverClient", "[client] Sending ${pendingMessages.size} queued messages")
-                    val queued = pendingMessages.toList()
-                    pendingMessages.clear()
-                    queued.forEach { sendMessage(it) }
+                // Send REGISTER as first encrypted message (mirrors JS)
+                val reg = JSONObject().apply {
+                    put("type", "REGISTER")
+                    put("device_id", deviceId)
+                    put("ts", System.currentTimeMillis())
+                    // seq + from_device will be added by sendEncrypted()
                 }
+                sendEncrypted(reg)
 
-                sendMessage("Hello from kotlin client!")
+                // Flush pending messages (JSON and raw)
+                if (pendingJsonMessages.isNotEmpty()) {
+                    Log.d("CarryOverClient", "[client:$deviceId] Sending ${pendingJsonMessages.size} queued JSON messages")
+                    val queued = pendingJsonMessages.toList()
+                    pendingJsonMessages.clear()
+                    queued.forEach { sendEncrypted(it) }
+                }
+                if (pendingRawMessages.isNotEmpty()) {
+                    Log.d("CarryOverClient", "[client:$deviceId] Sending ${pendingRawMessages.size} queued raw messages")
+                    val queuedRaw = pendingRawMessages.toList()
+                    pendingRawMessages.clear()
+                    queuedRaw.forEach { sendMessage(it) }
+                }
+            }
+
+            "MSG" -> {
+                // Received application message from another device via server
+                val fromDevice = effectiveMsg.optString("from_device", "unknown")
+                val seq = effectiveMsg.optInt("seq", -1)
+                val payload = effectiveMsg.opt("payload") // could be object or string
+
+                Log.d("CarryOverClient", "[client:$deviceId] Received MSG from $fromDevice seq=$seq payload=$payload")
+
+                // Send ACK (unencrypted) so server can route / mark delivered
+                val ackObj = JSONObject().apply {
+                    put("type", "ACK")
+                    put("ack_for", seq)
+                    put("to", fromDevice)
+                    put("from_device", deviceId)
+                }
+                ws.send(ackObj.toString())
+                Log.d("CarryOverClient", "[client:$deviceId] Sent ACK for seq=$seq to $fromDevice")
             }
 
             "ACK" -> {
-                Log.d("CarryOverClient", "[client] ACK received, closing connection...")
-                ws.close(1000, "Exchange completed.")
+                val ackFor = effectiveMsg.optInt("ack_for", -1)
+                val fromDevice = effectiveMsg.optString("from_device", "unknown")
+                Log.d("CarryOverClient", "[client:$deviceId] Received ACK for seq $ackFor from $fromDevice")
             }
 
             else -> {
-                Log.w("CarryOverClient", "[client] Unhandled message type: $msgType")
+                Log.w("CarryOverClient", "[client:$deviceId] Unhandled message type: $msgType")
             }
         }
     }
@@ -192,13 +271,12 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
 
     private fun generateX25519KeyPair(): KeyPair {
         val kpg = KeyPairGenerator.getInstance("X25519")
-        // no keysize to set for X25519
         return kpg.generateKeyPair()
     }
 
     // HKDF-SHA256 (RFC 5869)
     private fun hkdfSha256(ikm: ByteArray, salt: ByteArray, info: ByteArray, length: Int): ByteArray {
-        // Extract
+        // Extract (PRK)
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(SecretKeySpec(salt, "HmacSHA256"))
         val prk = mac.doFinal(ikm)
@@ -242,6 +320,20 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
         return out.copyOf(len)
     }
 
+    // --- Utilities ---
+
+    private fun getOrCreateDeviceId(): String {
+        val prefs = context.getSharedPreferences("carryover_prefs", Context.MODE_PRIVATE)
+        val key = "device_id"
+        val existing = prefs.getString(key, null)
+        if (!existing.isNullOrEmpty()) return existing
+
+        val bytes = ByteArray(8).also { secureRandom.nextBytes(it) }
+        val hex = bytes.toHexString()
+        prefs.edit().putString(key, hex).apply()
+        return hex
+    }
+
     companion object {
         // helper: hex -> byte[]
         private fun hexStringToByteArray(s: String): ByteArray {
@@ -255,11 +347,6 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
             return data
         }
 
-        // convenience: get last N bytes of ByteArray
-        private fun ByteArray.takeLast(n: Int): ByteArray {
-            return this.copyOfRange(this.size - n, this.size)
-        }
-
         private fun ByteArray.toHexString(): String {
             val sb = StringBuilder()
             for (b in this) sb.append(String.format("%02x", b))
@@ -269,8 +356,8 @@ class CarryOverClient(private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
-fun startClientExample() {
-    val client = CarryOverClient()
+fun startClientExample(context: Context) {
+    val client = CarryOverClient(context)
     thread {
         client.start()
         client.sendMessage("Hello from kotlin client!")

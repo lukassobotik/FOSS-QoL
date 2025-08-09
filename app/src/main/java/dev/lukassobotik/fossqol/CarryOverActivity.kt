@@ -36,7 +36,7 @@ class CarryOverActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startClientExample()
+            startClientExample(this@CarryOverActivity)
         }
         setContent {
             val tintColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color.White else Color.Black
