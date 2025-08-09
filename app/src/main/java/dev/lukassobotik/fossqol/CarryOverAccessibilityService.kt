@@ -1,6 +1,7 @@
 package dev.lukassobotik.fossqol
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Build
@@ -12,6 +13,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.FrameLayout
 import androidx.annotation.RequiresApi
 import dev.lukassobotik.fossqol.utils.formatDataToBase64
+import kotlin.concurrent.thread
 
 class CarryOverAccessibilityService : AccessibilityService() {
 
@@ -62,7 +64,7 @@ class CarryOverAccessibilityService : AccessibilityService() {
             init {
                 isClickable = true
                 setBackgroundColor(Color.argb(128, 255, 0, 0))
-                setOnClickListener { notchClicked() }
+                setOnClickListener { notchClicked(this@CarryOverAccessibilityService) }
                 setOnApplyWindowInsetsListener { v, insets ->
                     insets.displayCutout?.boundingRects?.firstOrNull()?.also { rect ->
                         with(params) {
@@ -81,7 +83,8 @@ class CarryOverAccessibilityService : AccessibilityService() {
         windowManager.addView(overlay, params)
     }
 
-    private fun notchClicked() {
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun notchClicked(context: Context) {
         Log.i("CarryOverService", "Tap detected. Attempting to scrape Firefox content.")
 
         val root = if (lastPackage == "org.mozilla.firefox") {
@@ -97,6 +100,11 @@ class CarryOverAccessibilityService : AccessibilityService() {
         }
 
         val result = extractBrowserData(root)
+        val client = CarryOverClient(context)
+        thread {
+            client.start()
+            client.sendScrollInfo(result)
+        }
         Log.i("CarryOverService", result)
     }
 

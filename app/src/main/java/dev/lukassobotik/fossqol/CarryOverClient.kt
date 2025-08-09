@@ -9,6 +9,7 @@ import okio.ByteString
 import org.bouncycastle.crypto.modes.ChaCha20Poly1305
 import org.bouncycastle.crypto.params.AEADParameters
 import org.bouncycastle.crypto.params.KeyParameter
+import org.json.JSONArray
 import org.json.JSONObject
 import java.nio.ByteBuffer
 import java.security.KeyFactory
@@ -55,8 +56,18 @@ class CarryOverClient(private val context: Context, private val wsUrl: String = 
     // persistent per-install device ID (8 random bytes hex)
     private val deviceId: String by lazy { getOrCreateDeviceId() }
 
-    fun sendMessage(message: String) {
-        sendMessage(message.toByteArray(Charsets.UTF_8))
+    fun sendScrollInfo(message: String) {
+        val obj = JSONObject().apply {
+            put("msg_id", message + messageSeq)
+            put("to", JSONArray().put("2ba77a64b0e592f1"))
+            put("type", "SEND")
+            put("payload_meta", "url")
+            put("payload_plain", message)
+            put("ts", System.currentTimeMillis())
+            put("enc", true)
+        }
+
+        sendEncrypted(obj)
     }
 
     /**
@@ -212,14 +223,14 @@ class CarryOverClient(private val context: Context, private val wsUrl: String = 
                 sessionKey = hkdfSha256(sharedSecret, salt, info, 32)
                 Log.d("CarryOverClient", "[client:$deviceId] Session key derived: ${sessionKey!!.toHexString()}")
 
-                // Send REGISTER as first encrypted message (mirrors JS)
-                val reg = JSONObject().apply {
-                    put("type", "REGISTER")
-                    put("device_id", deviceId)
-                    put("ts", System.currentTimeMillis())
-                    // seq + from_device will be added by sendEncrypted()
-                }
-                sendEncrypted(reg)
+//                // Send REGISTER as first encrypted message (mirrors JS)
+//                val reg = JSONObject().apply {
+//                    put("type", "REGISTER")
+//                    put("device_id", deviceId)
+//                    put("ts", System.currentTimeMillis())
+//                    // seq + from_device will be added by sendEncrypted()
+//                }
+//                sendEncrypted(reg)
 
                 // Flush pending messages (JSON and raw)
                 if (pendingJsonMessages.isNotEmpty()) {
@@ -236,7 +247,11 @@ class CarryOverClient(private val context: Context, private val wsUrl: String = 
                 }
             }
 
-            "MSG" -> {
+            "REGISTERED" -> {
+                Log.d("CarryOverClient", "[client:$deviceId] Successfully registered.")
+            }
+
+            "FORWARD" -> {
                 // Received application message from another device via server
                 val fromDevice = effectiveMsg.optString("from_device", "unknown")
                 val seq = effectiveMsg.optInt("seq", -1)
@@ -360,6 +375,6 @@ fun startClientExample(context: Context) {
     val client = CarryOverClient(context)
     thread {
         client.start()
-        client.sendMessage("Hello from kotlin client!")
+        client.sendScrollInfo("eyJ1cmwiOiJiYmMuY29tXC9waWRnaW5cL2FydGljbGVzXC9jNzllMnAwZHhnOW8iLCJzbmlwcGV0cyI6WyJXYXRlcm1lbG9uOiBIZWFsdGggYmVuZWZpdHMgb2Ygd2F0ZXJtZWxvbiAtIEJCQyBOZXdzIFBpZGdpbiIsIlNoZSBhZGQgc2F5IGFsbCBkaXMgYmV0YSB0aW5zIHdleSB3YXRlcm1lbG9uIGRleSBkbyBuYSBzYWtlIG9mIGRpIHdhdGVyIHdleSBmdWxsIGFtIGFuZCBzb21lIHNwZWNpYWwgdGlucyB3ZXkgZGV5IGluc2lkZSBsaWtlIGx5Y29wZW5lICh3ZXkgZGV5IG1ha2UgYW0gcmVkKSBhbmQgY2l0cnVsbGluZS4iLCJXYXRlcm1lbG9uIG5hIG5hdHVyYWwgc291cmNlIG9mIGNpdHJ1bGxpbmUuIENpdHJ1bGxpbmUgbmEgYW1pbm8gYWNpZCB3ZXkgZml0IHN1cHBvcnQgYmV0YSBlcmVjdGlvbnMuIiwiRGlldGl0aWFuIFN1bGFpbWFuIHNheSB3YXRlcm1lbG9uIG5hIG5hdHVyYWwgVmlhZ3JhIHdleSBkZXkgaGVscCBtZW4gd2V5IGdldCBsb3cgc2V4dWFsIHBlcmZvcm1hbmNlLCBhcyBlIGRleSBpbmNyZWFzZSBibG9vZCBmbG93IHRvIGRpIHBlbmlzLCB3ZXkgZGV5IGFsbG93IG1lbiB0byBlYXNpbHkgZ2V0IGVyZWN0aW9uIHdpdGhvdXQgYXJvdXNhbC4iLCJcIlJlc2VhcmNoIGRvbiBzaG93IHNheSBjaXRydWxsaW5lIHdleSBkZXkgd2F0ZXJtZWxvbiBmaXQgaGVscCBtZW4gd2V5IGdldCBzbWFsbCB3YWhhbGEgd2l0IHBlcmZvcm1hbmNlIGFzIGUgZGV5IGhlbHAgYmxvb2QgZmxvdyB3ZWxsIHRvIGRpIHBlbmlzXCIgc2hlIGFkZC4iLCJBbm90aGVyIHRoaW5nIHdlIGRlIGZvciBpbnNpZGUgZGlzIHRvcmkiLCJDbGljayBoZXJlIHRvIGpvaW4gQkJDIFBpZGdpbiBXaGF0c2FwcCBDaGFubmVsIiwiV2h5IGRpIGRlbWFuZCBmb3IgbWF0Y2hhIHRlYSBkZXkgZHJ5IHVwIGdsb2JhbCBzdXBwbHkgMjZ0aCBKdWx5IDIwMjUiLCJXaHkgZGkgZGVtYW5kIGZvciBtYXRjaGEgdGVhIGRleSBkcnkgdXAgZ2xvYmFsIHN1cHBseSIsIjI2dGggSnVseSAyMDI1Il19")
     }
 }
