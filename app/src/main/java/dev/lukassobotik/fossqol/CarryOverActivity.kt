@@ -7,29 +7,42 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.provider.Settings.canDrawOverlays
 import android.text.TextUtils
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.lukassobotik.fossqol.ui.theme.FOSSQoLTheme
+import dev.lukassobotik.fossqol.utils.loadFromSharedPreferences
+import dev.lukassobotik.fossqol.utils.loadPairedDeviceIDs
+import dev.lukassobotik.fossqol.utils.savePairedDeviceIDs
+import dev.lukassobotik.fossqol.utils.saveToSharedPreferences
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+const val SHARED_PREFERENCES_SERVER_IP = "server_ip"
+const val SHARED_PREFERENCES_PAIRED_DEVICES = "paired_devices"
+const val SHARED_PREFERENCES_PAIRED_DEVICE_IDS = "paired_device_ids"
 
 class CarryOverActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,12 +102,22 @@ private fun activityScreen(context: Context) {
     val scrollState = rememberScrollState()
     val packageName = context.packageName
 
-    val isServiceEnabled = remember {
-        mutableStateOf(false)
-    }
+    val isServiceEnabled = remember { mutableStateOf(false) }
+    val canDrawOverlays = remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        isServiceEnabled.value = isAccessibilityServiceEnabled(context, CarryOverAccessibilityService::class.java)
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isServiceEnabled.value = isAccessibilityServiceEnabled(context, CarryOverAccessibilityService::class.java)
+                canDrawOverlays.value = canDrawOverlays(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     Column(
@@ -143,19 +166,53 @@ private fun activityScreen(context: Context) {
                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 context.startActivity(intent)
             },
-            alreadyGranted = Settings.canDrawOverlays(context)
+            alreadyGranted = canDrawOverlays.value
         )
 
-        stepRow(
+        expandableStepRow(
             headline = "FOSS QoL Companion",
-            description = "Install the FOSS QoL Companion extension on Firefox.",
-            clickAction = {
-                val url = "https://github.com/lukassobotik/foss-qol"
-                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                context.startActivity(intent)
-            }
-        )
+            description = "Install the FOSS QoL Companion extension on Firefox."
+        ) {
+            Text(
+                text = "Install the FOSS QoL Companion extension on the computer you want to continue on. " +
+                        "You can install it from GitHub or Mozilla Add-ons.",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Text(
+                text = "GitHub Repository",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.clickable {
+                    val url = "https://github.com/lukassobotik/foss-qol"
+                    val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    context.startActivity(intent)
+                }
+            )
+            Text(
+                text = "Paired devices",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            dynamicTextFields(label = "Device")
+        }
+        expandableStepRow(
+            headline = "FOSS QoL Server",
+            description = "Run a server to enable communication between devices."
+        ) {
+            Text(
+                text = "This server is needed to make sure your devices can communicate with each other. \n" +
+                        "There are 2 options: \n" +
+                        "1. Run the server on the receiving computer (or any other computer that would run the server constantly). \n" +
+                        "2. Run the server on this phone (not recommended - it will drain your battery). \n" +
+                        "",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            serverIPTextField()
+        }
     }
 }
 
@@ -177,4 +234,118 @@ private fun stepRow(headline: String, description: String, clickAction: () -> Un
         overlineContent = {  },
         modifier = Modifier.clickable(onClick = clickAction)
     )
+}
+
+@Composable
+private fun expandableStepRow(
+    headline: String,
+    description: String,
+    expandedContent: @Composable () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val rotation by animateFloatAsState(if (expanded) 180f else 0f)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded }
+    ) {
+        ListItem(
+            headlineContent = { Text(headline, modifier = Modifier.padding(start = 8.dp)) },
+            supportingContent = { Text(description, modifier = Modifier.padding(start = 8.dp)) },
+            trailingContent = {
+                Icon(
+                    imageVector = Icons.Rounded.ExpandMore,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    modifier = Modifier
+                        .padding(end = 8.dp)
+                        .rotate(rotation)
+                )
+            }
+        )
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+            ) {
+                expandedContent()
+            }
+        }
+    }
+}
+
+@Composable
+fun serverIPTextField() {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    var serverIP by remember {
+        mutableStateOf(loadFromSharedPreferences(context, SHARED_PREFERENCES_SERVER_IP, SHARED_PREFERENCES_SERVER_IP))
+    }
+    var saveJob by remember { mutableStateOf<Job?>(null) }
+
+    fun scheduleSave() {
+        saveJob?.cancel()
+        saveJob = coroutineScope.launch {
+            delay(500) // debounce delay
+            saveToSharedPreferences(context, SHARED_PREFERENCES_SERVER_IP, SHARED_PREFERENCES_SERVER_IP, serverIP.toString())
+        }
+    }
+
+    OutlinedTextField(
+        value = serverIP,
+        onValueChange = { newValue ->
+            serverIP = newValue
+            scheduleSave()
+        },
+        label = { Text("Server IP Address") },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    )
+}
+
+@Composable
+fun dynamicTextFields(label: String = "Input") {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    var fields by remember {
+        mutableStateOf(loadPairedDeviceIDs(context))
+    }
+
+    var saveJob by remember { mutableStateOf<Job?>(null) }
+
+    fun scheduleSave() {
+        saveJob?.cancel()
+        saveJob = coroutineScope.launch {
+            delay(500) // debounce delay
+            savePairedDeviceIDs(context, fields)
+        }
+    }
+
+    Column {
+        fields.forEachIndexed { index, value ->
+            OutlinedTextField(
+                value = value,
+                onValueChange = { newValue ->
+                    fields = fields.toMutableList().apply {
+                        this[index] = newValue
+
+                        // Add empty at end if typing in the last one
+                        if (index == lastIndex && newValue.isNotBlank()) add("")
+
+                        // Remove if blank and not last
+                        if (index != lastIndex && newValue.isBlank()) removeAt(index)
+                    }
+                    scheduleSave()
+                },
+                label = { Text("$label #${index + 1}") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            )
+        }
+    }
 }

@@ -4,28 +4,26 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
+import dev.lukassobotik.fossqol.utils.*
 import okhttp3.*
 import okio.ByteString
-import org.bouncycastle.crypto.modes.ChaCha20Poly1305
-import org.bouncycastle.crypto.params.AEADParameters
-import org.bouncycastle.crypto.params.KeyParameter
 import org.json.JSONArray
 import org.json.JSONObject
 import java.nio.ByteBuffer
 import java.security.KeyFactory
 import java.security.KeyPair
-import java.security.KeyPairGenerator
 import java.security.SecureRandom
 import java.security.spec.X509EncodedKeySpec
 import java.util.*
 import javax.crypto.KeyAgreement
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 import kotlin.concurrent.thread
 
 // TODO: Handle unsupported versions
 @RequiresApi(Build.VERSION_CODES.O)
-class CarryOverClient(private val context: Context, private val wsUrl: String = "ws://10.0.2.2:6778/ws") {
+class CarryOverClient(private val context: Context) {
+    private var wsUrl: String = "" //ws://10.0.2.2:6778/ws
+    private var pairedDevices: JSONArray = JSONArray()
+
     // DER header used in Node.js ("302a300506032b656e032100" hex)
     private val X25519_SPKE_DER_HEADER = hexStringToByteArray("302a300506032b656e032100")
 
@@ -58,8 +56,8 @@ class CarryOverClient(private val context: Context, private val wsUrl: String = 
 
     fun sendScrollInfo(message: String) {
         val obj = JSONObject().apply {
-            put("msg_id", message + messageSeq)
-            put("to", JSONArray().put("2ba77a64b0e592f1"))
+            put("msg_id", createMessageId())
+            put("to", pairedDevices)
             put("type", "SEND")
             put("payload_meta", "url")
             put("payload_plain", message)
@@ -99,7 +97,7 @@ class CarryOverClient(private val context: Context, private val wsUrl: String = 
     }
 
     /**
-     * Send a structured JSON object encrypted (mirrors JS sendEncrypted).
+     * Send a structured JSON object encrypted.
      * Adds seq and from_device automatically. Queues until session established.
      */
     fun sendEncrypted(obj: JSONObject) {
@@ -131,14 +129,33 @@ class CarryOverClient(private val context: Context, private val wsUrl: String = 
     }
 
     fun start() {
+        loadUserConfig()
         val request = Request.Builder().url(wsUrl).build()
         client.newWebSocket(request, socketListener)
+    }
+
+    fun loadUserConfig() {
+        val savedDevices = loadFromSharedPreferences(context, SHARED_PREFERENCES_PAIRED_DEVICES, SHARED_PREFERENCES_PAIRED_DEVICE_IDS)
+        try {
+            pairedDevices = JSONArray(savedDevices)
+        } catch (e: Exception) {
+            if (savedDevices.isEmpty()) {
+                Log.d("CarryOverClient", "[client:$deviceId] User has no paired devices.")
+            } else {
+                Log.w("CarryOverClient", "Error loading preferences", e)
+            }
+        }
+        var serverAddress = loadFromSharedPreferences(context, SHARED_PREFERENCES_SERVER_IP, SHARED_PREFERENCES_SERVER_IP)
+        if (serverAddress.contains(":")) serverAddress = serverAddress.substringBefore(":")
+        serverAddress = "ws://$serverAddress:6778/ws"
+        Log.d("CarryOverClient", "[client:$deviceId] Server address: $serverAddress")
+        wsUrl = serverAddress
     }
 
     private val socketListener = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
             this@CarryOverClient.webSocket = webSocket
-            Log.d("CarryOverClient", "[client:$deviceId] Connected to server")
+            Log.d("CarryOverClient", "[client:$deviceId] Connected to server.")
             val hello = JSONObject().apply {
                 put("type", "HELLO")
                 put("client_pk", base64.encodeToString(clientPubRaw))
@@ -150,7 +167,7 @@ class CarryOverClient(private val context: Context, private val wsUrl: String = 
 
         override fun onMessage(webSocket: WebSocket, text: String) {
             try {
-                handleMessage(webSocket, JSONObject(text))
+                handleMessage(JSONObject(text))
             } catch (e: Exception) {
                 Log.d("CarryOverClient", "[client:$deviceId] Non-JSON or handling error: ${e.localizedMessage}")
             }
@@ -166,7 +183,7 @@ class CarryOverClient(private val context: Context, private val wsUrl: String = 
         }
     }
 
-    private fun handleMessage(ws: WebSocket, rawMsg: JSONObject) {
+    private fun handleMessage(rawMsg: JSONObject) {
         Log.d("CarryOverClient", "[client:$deviceId] Received (raw): $rawMsg")
 
         // If message is marked encrypted, decrypt into an effectiveMsg, else use rawMsg.
@@ -192,6 +209,10 @@ class CarryOverClient(private val context: Context, private val wsUrl: String = 
 
         val msgType = effectiveMsg.optString("type", "")
 
+        handleResponseTypes(msgType, effectiveMsg)
+    }
+
+    private fun handleResponseTypes(msgType: String, effectiveMsg: JSONObject) {
         when (msgType) {
             "WELCOME" -> {
                 // ECDH shared secret
@@ -223,15 +244,6 @@ class CarryOverClient(private val context: Context, private val wsUrl: String = 
                 sessionKey = hkdfSha256(sharedSecret, salt, info, 32)
                 Log.d("CarryOverClient", "[client:$deviceId] Session key derived: ${sessionKey!!.toHexString()}")
 
-//                // Send REGISTER as first encrypted message (mirrors JS)
-//                val reg = JSONObject().apply {
-//                    put("type", "REGISTER")
-//                    put("device_id", deviceId)
-//                    put("ts", System.currentTimeMillis())
-//                    // seq + from_device will be added by sendEncrypted()
-//                }
-//                sendEncrypted(reg)
-
                 // Flush pending messages (JSON and raw)
                 if (pendingJsonMessages.isNotEmpty()) {
                     Log.d("CarryOverClient", "[client:$deviceId] Sending ${pendingJsonMessages.size} queued JSON messages")
@@ -259,15 +271,19 @@ class CarryOverClient(private val context: Context, private val wsUrl: String = 
 
                 Log.d("CarryOverClient", "[client:$deviceId] Received MSG from $fromDevice seq=$seq payload=$payload")
 
-                // Send ACK (unencrypted) so server can route / mark delivered
-                val ackObj = JSONObject().apply {
-                    put("type", "ACK")
-                    put("ack_for", seq)
-                    put("to", fromDevice)
-                    put("from_device", deviceId)
-                }
-                ws.send(ackObj.toString())
-                Log.d("CarryOverClient", "[client:$deviceId] Sent ACK for seq=$seq to $fromDevice")
+                // TODO: Send ACK
+            }
+
+            "SEND_NODST" -> {
+                Log.d("CarryOverClient", "[client:$deviceId] Message not sent to [${effectiveMsg.getString("dst")}]. Device is offline.")
+            }
+
+            "SEND_FAIL" -> {
+                Log.d("CarryOverClient", "[client:$deviceId] Message not sent. No devices are online.")
+            }
+
+            "SEND_OK" -> {
+                Log.d("CarryOverClient", "[client:$deviceId] Message sent.")
             }
 
             "ACK" -> {
@@ -282,59 +298,6 @@ class CarryOverClient(private val context: Context, private val wsUrl: String = 
         }
     }
 
-    // --- Crypto helpers ---
-
-    private fun generateX25519KeyPair(): KeyPair {
-        val kpg = KeyPairGenerator.getInstance("X25519")
-        return kpg.generateKeyPair()
-    }
-
-    // HKDF-SHA256 (RFC 5869)
-    private fun hkdfSha256(ikm: ByteArray, salt: ByteArray, info: ByteArray, length: Int): ByteArray {
-        // Extract (PRK)
-        val mac = Mac.getInstance("HmacSHA256")
-        mac.init(SecretKeySpec(salt, "HmacSHA256"))
-        val prk = mac.doFinal(ikm)
-
-        // Expand
-        var t = ByteArray(0)
-        val okm = ByteArray(length)
-        var produced = 0
-        var counter = 1
-        while (produced < length) {
-            mac.init(SecretKeySpec(prk, "HmacSHA256"))
-            mac.update(t)
-            mac.update(info)
-            mac.update(counter.toByte())
-            t = mac.doFinal()
-            val toCopy = Math.min(t.size, length - produced)
-            System.arraycopy(t, 0, okm, produced, toCopy)
-            produced += toCopy
-            counter++
-        }
-        return okm
-    }
-
-    private fun encryptChaCha20Poly1305(key: ByteArray, nonce: ByteArray, plaintext: ByteArray): ByteArray {
-        val engine = ChaCha20Poly1305()
-        val params = AEADParameters(KeyParameter(key), 128, nonce, null)
-        engine.init(true, params)
-        val out = ByteArray(engine.getOutputSize(plaintext.size))
-        var len = engine.processBytes(plaintext, 0, plaintext.size, out, 0)
-        len += engine.doFinal(out, len)
-        return out.copyOf(len) // ciphertext || tag
-    }
-
-    private fun decryptChaCha20Poly1305(key: ByteArray, nonce: ByteArray, ciphertextAndTag: ByteArray): ByteArray {
-        val engine = ChaCha20Poly1305()
-        val params = AEADParameters(KeyParameter(key), 128, nonce, null)
-        engine.init(false, params)
-        val out = ByteArray(engine.getOutputSize(ciphertextAndTag.size))
-        var len = engine.processBytes(ciphertextAndTag, 0, ciphertextAndTag.size, out, 0)
-        len += engine.doFinal(out, len)
-        return out.copyOf(len)
-    }
-
     // --- Utilities ---
 
     private fun getOrCreateDeviceId(): String {
@@ -347,6 +310,11 @@ class CarryOverClient(private val context: Context, private val wsUrl: String = 
         val hex = bytes.toHexString()
         prefs.edit().putString(key, hex).apply()
         return hex
+    }
+
+    private fun createMessageId(): String {
+        val bytes = ByteArray(16).also { secureRandom.nextBytes(it) }
+        return bytes.toHexString()
     }
 
     companion object {
@@ -375,6 +343,6 @@ fun startClientExample(context: Context) {
     val client = CarryOverClient(context)
     thread {
         client.start()
-        client.sendScrollInfo("eyJ1cmwiOiJiYmMuY29tXC9waWRnaW5cL2FydGljbGVzXC9jNzllMnAwZHhnOW8iLCJzbmlwcGV0cyI6WyJXYXRlcm1lbG9uOiBIZWFsdGggYmVuZWZpdHMgb2Ygd2F0ZXJtZWxvbiAtIEJCQyBOZXdzIFBpZGdpbiIsIlNoZSBhZGQgc2F5IGFsbCBkaXMgYmV0YSB0aW5zIHdleSB3YXRlcm1lbG9uIGRleSBkbyBuYSBzYWtlIG9mIGRpIHdhdGVyIHdleSBmdWxsIGFtIGFuZCBzb21lIHNwZWNpYWwgdGlucyB3ZXkgZGV5IGluc2lkZSBsaWtlIGx5Y29wZW5lICh3ZXkgZGV5IG1ha2UgYW0gcmVkKSBhbmQgY2l0cnVsbGluZS4iLCJXYXRlcm1lbG9uIG5hIG5hdHVyYWwgc291cmNlIG9mIGNpdHJ1bGxpbmUuIENpdHJ1bGxpbmUgbmEgYW1pbm8gYWNpZCB3ZXkgZml0IHN1cHBvcnQgYmV0YSBlcmVjdGlvbnMuIiwiRGlldGl0aWFuIFN1bGFpbWFuIHNheSB3YXRlcm1lbG9uIG5hIG5hdHVyYWwgVmlhZ3JhIHdleSBkZXkgaGVscCBtZW4gd2V5IGdldCBsb3cgc2V4dWFsIHBlcmZvcm1hbmNlLCBhcyBlIGRleSBpbmNyZWFzZSBibG9vZCBmbG93IHRvIGRpIHBlbmlzLCB3ZXkgZGV5IGFsbG93IG1lbiB0byBlYXNpbHkgZ2V0IGVyZWN0aW9uIHdpdGhvdXQgYXJvdXNhbC4iLCJcIlJlc2VhcmNoIGRvbiBzaG93IHNheSBjaXRydWxsaW5lIHdleSBkZXkgd2F0ZXJtZWxvbiBmaXQgaGVscCBtZW4gd2V5IGdldCBzbWFsbCB3YWhhbGEgd2l0IHBlcmZvcm1hbmNlIGFzIGUgZGV5IGhlbHAgYmxvb2QgZmxvdyB3ZWxsIHRvIGRpIHBlbmlzXCIgc2hlIGFkZC4iLCJBbm90aGVyIHRoaW5nIHdlIGRlIGZvciBpbnNpZGUgZGlzIHRvcmkiLCJDbGljayBoZXJlIHRvIGpvaW4gQkJDIFBpZGdpbiBXaGF0c2FwcCBDaGFubmVsIiwiV2h5IGRpIGRlbWFuZCBmb3IgbWF0Y2hhIHRlYSBkZXkgZHJ5IHVwIGdsb2JhbCBzdXBwbHkgMjZ0aCBKdWx5IDIwMjUiLCJXaHkgZGkgZGVtYW5kIGZvciBtYXRjaGEgdGVhIGRleSBkcnkgdXAgZ2xvYmFsIHN1cHBseSIsIjI2dGggSnVseSAyMDI1Il19")
+//        client.sendScrollInfo("eyJ1cmwiOiJiYmMuY29tXC9waWRnaW5cL2FydGljbGVzXC9jNzllMnAwZHhnOW8iLCJzbmlwcGV0cyI6WyJXYXRlcm1lbG9uOiBIZWFsdGggYmVuZWZpdHMgb2Ygd2F0ZXJtZWxvbiAtIEJCQyBOZXdzIFBpZGdpbiIsIlNoZSBhZGQgc2F5IGFsbCBkaXMgYmV0YSB0aW5zIHdleSB3YXRlcm1lbG9uIGRleSBkbyBuYSBzYWtlIG9mIGRpIHdhdGVyIHdleSBmdWxsIGFtIGFuZCBzb21lIHNwZWNpYWwgdGlucyB3ZXkgZGV5IGluc2lkZSBsaWtlIGx5Y29wZW5lICh3ZXkgZGV5IG1ha2UgYW0gcmVkKSBhbmQgY2l0cnVsbGluZS4iLCJXYXRlcm1lbG9uIG5hIG5hdHVyYWwgc291cmNlIG9mIGNpdHJ1bGxpbmUuIENpdHJ1bGxpbmUgbmEgYW1pbm8gYWNpZCB3ZXkgZml0IHN1cHBvcnQgYmV0YSBlcmVjdGlvbnMuIiwiRGlldGl0aWFuIFN1bGFpbWFuIHNheSB3YXRlcm1lbG9uIG5hIG5hdHVyYWwgVmlhZ3JhIHdleSBkZXkgaGVscCBtZW4gd2V5IGdldCBsb3cgc2V4dWFsIHBlcmZvcm1hbmNlLCBhcyBlIGRleSBpbmNyZWFzZSBibG9vZCBmbG93IHRvIGRpIHBlbmlzLCB3ZXkgZGV5IGFsbG93IG1lbiB0byBlYXNpbHkgZ2V0IGVyZWN0aW9uIHdpdGhvdXQgYXJvdXNhbC4iLCJcIlJlc2VhcmNoIGRvbiBzaG93IHNheSBjaXRydWxsaW5lIHdleSBkZXkgd2F0ZXJtZWxvbiBmaXQgaGVscCBtZW4gd2V5IGdldCBzbWFsbCB3YWhhbGEgd2l0IHBlcmZvcm1hbmNlIGFzIGUgZGV5IGhlbHAgYmxvb2QgZmxvdyB3ZWxsIHRvIGRpIHBlbmlzXCIgc2hlIGFkZC4iLCJBbm90aGVyIHRoaW5nIHdlIGRlIGZvciBpbnNpZGUgZGlzIHRvcmkiLCJDbGljayBoZXJlIHRvIGpvaW4gQkJDIFBpZGdpbiBXaGF0c2FwcCBDaGFubmVsIiwiV2h5IGRpIGRlbWFuZCBmb3IgbWF0Y2hhIHRlYSBkZXkgZHJ5IHVwIGdsb2JhbCBzdXBwbHkgMjZ0aCBKdWx5IDIwMjUiLCJXaHkgZGkgZGVtYW5kIGZvciBtYXRjaGEgdGVhIGRleSBkcnkgdXAgZ2xvYmFsIHN1cHBseSIsIjI2dGggSnVseSAyMDI1Il19")
     }
 }
