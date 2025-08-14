@@ -24,6 +24,8 @@ class CarryOverClient(private val context: Context) {
     private var wsUrl: String = "" //ws://10.0.2.2:6778/ws
     private var pairedDevices: JSONArray = JSONArray()
 
+    private val verboseLogging: Boolean = false
+
     // DER header used in Node.js ("302a300506032b656e032100" hex)
     private val X25519_SPKE_DER_HEADER = hexStringToByteArray("302a300506032b656e032100")
 
@@ -184,7 +186,7 @@ class CarryOverClient(private val context: Context) {
     }
 
     private fun handleMessage(rawMsg: JSONObject) {
-        Log.d("CarryOverClient", "[client:$deviceId] Received (raw): $rawMsg")
+        if (verboseLogging) Log.d("CarryOverClient", "[client:$deviceId] Received (raw): $rawMsg")
 
         // If message is marked encrypted, decrypt into an effectiveMsg, else use rawMsg.
         val effectiveMsg: JSONObject = if (rawMsg.optBoolean("enc", false)) {
@@ -197,7 +199,7 @@ class CarryOverClient(private val context: Context) {
                     ciphertextAndTag
                 )
                 val decoded = JSONObject(String(plaintext))
-                Log.d("CarryOverClient", "[client:$deviceId] Decrypted message: $decoded")
+                if (verboseLogging) Log.d("CarryOverClient", "[client:$deviceId] Decrypted message: $decoded")
                 decoded
             } catch (e: Exception) {
                 Log.d("CarryOverClient", "[client:$deviceId] Failed to decrypt message: ${e.localizedMessage}")
@@ -246,13 +248,13 @@ class CarryOverClient(private val context: Context) {
 
                 // Flush pending messages (JSON and raw)
                 if (pendingJsonMessages.isNotEmpty()) {
-                    Log.d("CarryOverClient", "[client:$deviceId] Sending ${pendingJsonMessages.size} queued JSON messages")
+                    if (verboseLogging) Log.d("CarryOverClient", "[client:$deviceId] Sending ${pendingJsonMessages.size} queued JSON messages")
                     val queued = pendingJsonMessages.toList()
                     pendingJsonMessages.clear()
                     queued.forEach { sendEncrypted(it) }
                 }
                 if (pendingRawMessages.isNotEmpty()) {
-                    Log.d("CarryOverClient", "[client:$deviceId] Sending ${pendingRawMessages.size} queued raw messages")
+                    if (verboseLogging) Log.d("CarryOverClient", "[client:$deviceId] Sending ${pendingRawMessages.size} queued raw messages")
                     val queuedRaw = pendingRawMessages.toList()
                     pendingRawMessages.clear()
                     queuedRaw.forEach { sendMessage(it) }
@@ -267,15 +269,22 @@ class CarryOverClient(private val context: Context) {
                 // Received application message from another device via server
                 val fromDevice = effectiveMsg.optString("from_device", "unknown")
                 val seq = effectiveMsg.optInt("seq", -1)
+                val msgId = effectiveMsg.getString("msg_id")
                 val payload = effectiveMsg.opt("payload") // could be object or string
 
                 Log.d("CarryOverClient", "[client:$deviceId] Received MSG from $fromDevice seq=$seq payload=$payload")
 
-                // TODO: Send ACK
+                sendEncrypted(JSONObject().apply {
+                    put("type", "DELIVERY_ACK")
+                    put("msg_id", msgId)
+                    put("status", "delivered")
+                    put("ts", System.currentTimeMillis())
+                    put("enc", true)
+                })
             }
 
             "SEND_NODST" -> {
-                Log.d("CarryOverClient", "[client:$deviceId] Message not sent to [${effectiveMsg.getString("dst")}]. Device is offline.")
+                Log.d("CarryOverClient", "[client:$deviceId] Message not sent to: ${effectiveMsg.getString("dst")}. Device is offline.")
             }
 
             "SEND_FAIL" -> {
@@ -283,7 +292,13 @@ class CarryOverClient(private val context: Context) {
             }
 
             "SEND_OK" -> {
-                Log.d("CarryOverClient", "[client:$deviceId] Message sent.")
+                if (verboseLogging) Log.d("CarryOverClient", "[client:$deviceId] Message received by the server.")
+            }
+
+            "DELIVERY_ACK_FOR_SENDER" -> {
+                Log.d("CarryOverClient", "[client:$deviceId] Message received by: ${effectiveMsg.optString("from", "unknown")}.")
+                webSocket?.close(1000, "Normal Closure.")
+                Log.d("CarryOverClient", "[client:$deviceId] Closed connection.")
             }
 
             "ACK" -> {
