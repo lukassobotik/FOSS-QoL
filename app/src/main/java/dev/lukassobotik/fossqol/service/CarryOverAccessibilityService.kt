@@ -1,4 +1,4 @@
-package dev.lukassobotik.fossqol
+package dev.lukassobotik.fossqol.service
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
@@ -7,11 +7,11 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.util.Log
 import android.view.WindowManager
-import android.view.WindowManager.LayoutParams
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.FrameLayout
 import androidx.annotation.RequiresApi
+import dev.lukassobotik.fossqol.utils.CarryOverClient
 import dev.lukassobotik.fossqol.utils.formatDataToBase64
 import kotlin.concurrent.thread
 
@@ -48,16 +48,16 @@ class CarryOverAccessibilityService : AccessibilityService() {
 
     @RequiresApi(Build.VERSION_CODES.P)
     private fun setupOverlay() {
-        val params = LayoutParams(
-            LayoutParams.WRAP_CONTENT,
-            LayoutParams.WRAP_CONTENT,
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
-            else LayoutParams.TYPE_PHONE,
-            LayoutParams.FLAG_NOT_FOCUSABLE or LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+            else WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
-            layoutInDisplayCutoutMode = LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
 
         val overlay = object : FrameLayout(this) {

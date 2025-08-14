@@ -123,7 +123,7 @@
             </intent-filter>
         </service>
         <service
-                android:name=".CarryOverAccessibilityService"
+                android:name=".service.CarryOverAccessibilityService"
                 android:exported="false"
                 android:label="@string/carry_over_service_label"
                 android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">

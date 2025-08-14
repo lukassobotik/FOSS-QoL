@@ -1,11 +1,17 @@
-package dev.lukassobotik.fossqol
+package dev.lukassobotik.fossqol.utils
 
 import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import dev.lukassobotik.fossqol.utils.*
-import okhttp3.*
+import dev.lukassobotik.fossqol.SHARED_PREFERENCES_PAIRED_DEVICES
+import dev.lukassobotik.fossqol.SHARED_PREFERENCES_PAIRED_DEVICE_IDS
+import dev.lukassobotik.fossqol.SHARED_PREFERENCES_SERVER_IP
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import okio.ByteString
 import org.json.JSONArray
 import org.json.JSONObject
@@ -14,7 +20,7 @@ import java.security.KeyFactory
 import java.security.KeyPair
 import java.security.SecureRandom
 import java.security.spec.X509EncodedKeySpec
-import java.util.*
+import java.util.Base64
 import javax.crypto.KeyAgreement
 
 // TODO: Handle unsupported versions
@@ -244,7 +250,7 @@ class CarryOverClient(private val context: Context) {
                     .array()
 
                 sessionKey = hkdfSha256(sharedSecret, salt, info, 32)
-                Log.d("CarryOverClient", "[client:$deviceId] Session key derived: ${sessionKey!!.toHexString()}")
+                if (verboseLogging) Log.d("CarryOverClient", "[client:$deviceId] Session key derived: ${sessionKey!!.toHexString()}")
 
                 // Flush pending messages (JSON and raw)
                 if (pendingJsonMessages.isNotEmpty()) {

@@ -1,12 +1,14 @@
 package dev.lukassobotik.fossqol.utils
 
 import android.content.Context
+import android.util.Base64
 import dev.lukassobotik.fossqol.SHARED_PREFERENCES_PAIRED_DEVICES
 import dev.lukassobotik.fossqol.SHARED_PREFERENCES_PAIRED_DEVICE_IDS
 import org.bouncycastle.crypto.modes.ChaCha20Poly1305
 import org.bouncycastle.crypto.params.AEADParameters
 import org.bouncycastle.crypto.params.KeyParameter
 import org.json.JSONArray
+import org.json.JSONObject
 import java.security.KeyPair
 import java.security.KeyPairGenerator
 import javax.crypto.Mac
@@ -104,4 +106,16 @@ fun decryptChaCha20Poly1305(key: ByteArray, nonce: ByteArray, ciphertextAndTag: 
     var len = engine.processBytes(ciphertextAndTag, 0, ciphertextAndTag.size, out, 0)
     len += engine.doFinal(out, len)
     return out.copyOf(len)
+}
+
+// --- Other Utils ---
+
+fun formatDataToBase64(url: String, snippets: List<String>): String {
+    val json = JSONObject().apply {
+        put("url", url)
+        put("snippets", JSONArray(snippets))
+    }
+
+    val jsonString = json.toString()
+    return Base64.encodeToString(jsonString.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
 }

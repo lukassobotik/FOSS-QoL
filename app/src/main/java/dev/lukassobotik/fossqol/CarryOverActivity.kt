@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import dev.lukassobotik.fossqol.service.CarryOverAccessibilityService
 import dev.lukassobotik.fossqol.ui.theme.FOSSQoLTheme
 import dev.lukassobotik.fossqol.utils.loadFromSharedPreferences
 import dev.lukassobotik.fossqol.utils.loadPairedDeviceIDs
