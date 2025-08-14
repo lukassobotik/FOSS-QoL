@@ -16,7 +16,6 @@ import java.security.SecureRandom
 import java.security.spec.X509EncodedKeySpec
 import java.util.*
 import javax.crypto.KeyAgreement
-import kotlin.concurrent.thread
 
 // TODO: Handle unsupported versions
 @RequiresApi(Build.VERSION_CODES.O)
@@ -215,6 +214,7 @@ class CarryOverClient(private val context: Context) {
     }
 
     private fun handleResponseTypes(msgType: String, effectiveMsg: JSONObject) {
+        val msgId = effectiveMsg.optString("msg_id", "")
         when (msgType) {
             "WELCOME" -> {
                 // ECDH shared secret
@@ -269,7 +269,6 @@ class CarryOverClient(private val context: Context) {
                 // Received application message from another device via server
                 val fromDevice = effectiveMsg.optString("from_device", "unknown")
                 val seq = effectiveMsg.optInt("seq", -1)
-                val msgId = effectiveMsg.getString("msg_id")
                 val payload = effectiveMsg.opt("payload") // could be object or string
 
                 Log.d("CarryOverClient", "[client:$deviceId] Received MSG from $fromDevice seq=$seq payload=$payload")
@@ -299,6 +298,14 @@ class CarryOverClient(private val context: Context) {
                 Log.d("CarryOverClient", "[client:$deviceId] Message received by: ${effectiveMsg.optString("from", "unknown")}.")
                 webSocket?.close(1000, "Normal Closure.")
                 Log.d("CarryOverClient", "[client:$deviceId] Closed connection.")
+            }
+
+            "ACK_OK" -> {
+                if (verboseLogging) Log.d("CarryOverClient", "[client:$deviceId] Sender received ACK for: $msgId.")
+            }
+
+            "ACK_ERROR" -> {
+                Log.w("CarryOverClient", "[client:$deviceId] Sender didn't receive ACK for: $msgId. Sender is offline or unknown.")
             }
 
             "ACK" -> {
@@ -350,14 +357,5 @@ class CarryOverClient(private val context: Context) {
             for (b in this) sb.append(String.format("%02x", b))
             return sb.toString()
         }
-    }
-}
-
-@RequiresApi(Build.VERSION_CODES.O)
-fun startClientExample(context: Context) {
-    val client = CarryOverClient(context)
-    thread {
-        client.start()
-//        client.sendScrollInfo("eyJ1cmwiOiJiYmMuY29tXC9waWRnaW5cL2FydGljbGVzXC9jNzllMnAwZHhnOW8iLCJzbmlwcGV0cyI6WyJXYXRlcm1lbG9uOiBIZWFsdGggYmVuZWZpdHMgb2Ygd2F0ZXJtZWxvbiAtIEJCQyBOZXdzIFBpZGdpbiIsIlNoZSBhZGQgc2F5IGFsbCBkaXMgYmV0YSB0aW5zIHdleSB3YXRlcm1lbG9uIGRleSBkbyBuYSBzYWtlIG9mIGRpIHdhdGVyIHdleSBmdWxsIGFtIGFuZCBzb21lIHNwZWNpYWwgdGlucyB3ZXkgZGV5IGluc2lkZSBsaWtlIGx5Y29wZW5lICh3ZXkgZGV5IG1ha2UgYW0gcmVkKSBhbmQgY2l0cnVsbGluZS4iLCJXYXRlcm1lbG9uIG5hIG5hdHVyYWwgc291cmNlIG9mIGNpdHJ1bGxpbmUuIENpdHJ1bGxpbmUgbmEgYW1pbm8gYWNpZCB3ZXkgZml0IHN1cHBvcnQgYmV0YSBlcmVjdGlvbnMuIiwiRGlldGl0aWFuIFN1bGFpbWFuIHNheSB3YXRlcm1lbG9uIG5hIG5hdHVyYWwgVmlhZ3JhIHdleSBkZXkgaGVscCBtZW4gd2V5IGdldCBsb3cgc2V4dWFsIHBlcmZvcm1hbmNlLCBhcyBlIGRleSBpbmNyZWFzZSBibG9vZCBmbG93IHRvIGRpIHBlbmlzLCB3ZXkgZGV5IGFsbG93IG1lbiB0byBlYXNpbHkgZ2V0IGVyZWN0aW9uIHdpdGhvdXQgYXJvdXNhbC4iLCJcIlJlc2VhcmNoIGRvbiBzaG93IHNheSBjaXRydWxsaW5lIHdleSBkZXkgd2F0ZXJtZWxvbiBmaXQgaGVscCBtZW4gd2V5IGdldCBzbWFsbCB3YWhhbGEgd2l0IHBlcmZvcm1hbmNlIGFzIGUgZGV5IGhlbHAgYmxvb2QgZmxvdyB3ZWxsIHRvIGRpIHBlbmlzXCIgc2hlIGFkZC4iLCJBbm90aGVyIHRoaW5nIHdlIGRlIGZvciBpbnNpZGUgZGlzIHRvcmkiLCJDbGljayBoZXJlIHRvIGpvaW4gQkJDIFBpZGdpbiBXaGF0c2FwcCBDaGFubmVsIiwiV2h5IGRpIGRlbWFuZCBmb3IgbWF0Y2hhIHRlYSBkZXkgZHJ5IHVwIGdsb2JhbCBzdXBwbHkgMjZ0aCBKdWx5IDIwMjUiLCJXaHkgZGkgZGVtYW5kIGZvciBtYXRjaGEgdGVhIGRleSBkcnkgdXAgZ2xvYmFsIHN1cHBseSIsIjI2dGggSnVseSAyMDI1Il19")
     }
 }

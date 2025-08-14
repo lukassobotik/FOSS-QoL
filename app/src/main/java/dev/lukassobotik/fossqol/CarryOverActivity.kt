@@ -4,7 +4,6 @@ import android.accessibilityservice.AccessibilityService
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.provider.Settings.canDrawOverlays
@@ -48,9 +47,6 @@ class CarryOverActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startClientExample(this@CarryOverActivity)
-        }
         setContent {
             val tintColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color.White else Color.Black
             FOSSQoLTheme {
