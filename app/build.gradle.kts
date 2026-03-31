@@ -11,9 +11,9 @@ android {
     defaultConfig {
         applicationId = "dev.lukassobotik.fossqol"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 2
-        versionName = "pre1-v0.2.0"
+        targetSdk = 35
+        versionCode = 3
+        versionName = "v0.2.0-pre2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
